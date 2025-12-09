@@ -17,6 +17,10 @@ public:
 
 	Vector3 smoothedPosition = Vector3(0.0f, 0.0f, 0.0f);
 
+	// Track previous yaw offset to detect snap turns for weapon position smoothing
+	float lastSmoothingYawOffset = 0.0f;
+	bool bLastYawInitialized = false;
+
 protected:
 
 

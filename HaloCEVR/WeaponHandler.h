@@ -65,6 +65,13 @@ protected:
 	Vector3 realPlayerPosition;
 	Vector3 realPlayerAim;
 
+	// Smoothed facing direction for 3DOF mode weapon model
+	Vector3 smoothed3DOFFacingDir = Vector3(1.0f, 0.0f, 0.0f);
+	bool bWasIn3DOFMode = false;
+
+	// Track previous yaw offset to detect snap turns
+	float lastYawOffset = 0.0f;
+
 	// Debug stuff for checking where bullets are coming from/going
 #if DRAW_DEBUG_AIM
 	mutable Vector3 lastFireLocation;

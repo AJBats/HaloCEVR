@@ -3,6 +3,7 @@
 #include "Helpers/Controls.h"
 #include "Helpers/Camera.h"
 #include "Helpers/Menus.h"
+#include "Helpers/Maths.h"
 
 
 #define RegisterBoolInput(set, x) x = vr->RegisterBoolInput(set, #x);
@@ -565,6 +566,22 @@ void InputHandler::CalculateSmoothedInput()
 		return;
 	}
 
+	if (!bLastYawInitialized)
+	{
+		lastSmoothingYawOffset = Game::instance.GetVR()->GetYawOffset();
+		bLastYawInitialized = true;
+	}
+
+	// Detect snap turns and rotate smoothed position to prevent lerping artifact
+	float currentYawOffset = Game::instance.GetVR()->GetYawOffset();
+	float yawDelta = currentYawOffset - lastSmoothingYawOffset;
+
+	// Detect snap turns and rotate smoothed position
+	Helpers::RotateForSnapTurn(smoothedPosition, yawDelta, Game::instance.c_SnapTurnAmount->Value());
+
+	// Update tracked yaw offset for next frame
+	lastSmoothingYawOffset = currentYawOffset;
+
 	float userInput = 0.0f;
 	short zoom = Helpers::GetInputData().zoomLevel;
 
@@ -650,6 +667,12 @@ void InputHandler::CheckSwapWeaponHand()
 
 void InputHandler::UpdateTwoHandedHold(float handDistance, bool handsWithinSwapWeaponDistance)
 {
+	// Two hand aim is disabled when 3DOF is enabled.
+	if (Game::instance.bUse3DOFAiming) {
+		Game::instance.bUseTwoHandAim = false;
+		return;
+	}
+
 	IVR* vr = Game::instance.GetVR();
 
 	bool bGripChanged;

@@ -2,6 +2,7 @@
 #include "../Helpers/Player.h"
 #include "../Helpers/Renderer.h"
 #include "../Helpers/DX9.h"
+#include "../Helpers/Cutscene.h"
 #include "../Game.h"
 #include "../Helpers/Menus.h"
 #include "../Helpers/Maths.h"
@@ -862,6 +863,20 @@ void Hooks::H_DrawCinematicBars()
 void Hooks::H_DrawViewModel()
 {
 	VR_PROFILE_SCOPE(Hooks_DrawViewModel);
+
+	// Skip weapon rendering during cutscenes
+	CutsceneData* cutscene = Helpers::GetCutsceneData();
+	if (cutscene && cutscene->bInCutscene)
+	{
+		return;
+	}
+
+	// Skip weapon rendering during scope render in 3DOF mode
+	// This fixes an issue where the weapon model was showing up in the scope
+	if (Game::instance.GetRenderState() == ERenderState::SCOPE && Game::instance.bUse3DOFAiming)
+	{
+		return;
+	}
 
 	if (Game::instance.bLeftHanded)
 	{

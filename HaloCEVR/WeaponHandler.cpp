@@ -5,6 +5,8 @@
 #include "Helpers/Maths.h"
 #include "Logger.h"
 #include "Game.h"
+#include <algorithm>
+#include <cmath>
 
 // This is a working decomp of the game's original logic for updating the view model's skeleton
 // Only kept here for reference when working on the replacement function below
@@ -63,13 +65,105 @@ void WeaponHandler::UpdateViewModel(HaloID& id, Vector3* pos, Vector3* facing, V
 	pos->y = camPos.y;
 	pos->z = camPos.z;
 
-	facing->x = 1.0f;
-	facing->y = 0.0f;
-	facing->z = 0.0f;
+	Matrix4 handTransform;
+	CalculateHandTransform(pos, handTransform);
 
-	up->x = 0.0f;
-	up->y = 0.0f;
-	up->z = 1.0f;
+	if (Game::instance.bUse3DOFAiming)
+	{
+		// Initialize yaw offset tracking when entering 3DOF mode
+		if (!bWasIn3DOFMode)
+		{
+			lastYawOffset = Game::instance.GetVR()->GetYawOffset();
+			bWasIn3DOFMode = true;
+		}
+
+		// Apply HMD translation so weapon follows player's body position when leaning
+		Matrix4 hmdTransform = Game::instance.GetVR()->GetHMDTransform();
+		Vector3 hmdPosition = hmdTransform * Vector3(0.0f, 0.0f, 0.0f);
+		Vector3 hmdOffset = hmdPosition * Game::instance.MetresToWorld(1.0f);
+		pos->x += hmdOffset.x;
+		pos->y += hmdOffset.y;
+		pos->z += hmdOffset.z;
+
+		// Apply configurable weapon offset in world space (hot-reloadable)
+		Vector3 configOffset = Game::instance.c_3DOFWeaponOffset->Value();
+        Vector3 weaponOffset = configOffset * Game::instance.MetresToWorld(1.0f);
+		pos->x += weaponOffset.x;
+		pos->y += weaponOffset.y;
+		pos->z += weaponOffset.z;
+
+		// Apply controller rotation to weapon facing/up vectors
+		// Only use pitch and yaw from the controller, zero out roll
+
+		// Extract rotation from controller
+		Vector3 controllerPos = handTransform * Vector3(0.0f, 0.0f, 0.0f);
+		Matrix4 rotationOnly = handTransform;
+		rotationOnly.translate(-controllerPos);
+
+		// Get the facing direction from controller (this has pitch and yaw)
+		Vector3 facingDir = rotationOnly * Vector3(1.0f, 0.0f, 0.0f);
+
+		// Detect snap turns and rotate smoothed direction to prevent lerping artifact
+		float currentYawOffset = Game::instance.GetVR()->GetYawOffset();
+		float yawDelta = currentYawOffset - lastYawOffset;
+
+		// Detect snap turns and rotate smoothed direction
+		Helpers::RotateForSnapTurn(smoothed3DOFFacingDir, yawDelta, Game::instance.c_SnapTurnAmount->Value());
+
+		// Update tracked yaw offset for next frame
+		lastYawOffset = currentYawOffset;
+
+		// Apply cosmetic motion smoothing to facing direction
+		float smoothingAmount = Game::instance.c_3DOFWeaponSmoothingAmount->Value();
+		float clampedSmoothing = std::clamp(smoothingAmount, 0.0f, 2.0f);
+
+		if (clampedSmoothing > 0.0f)
+		{
+			const float scaleFactor = (-20.0f / 9.0f);
+			float h = 90.0f * log2(1.0f - exp(clampedSmoothing * scaleFactor));
+			float t = 1.0f - pow(2.0f, Game::instance.lastDeltaTime * h);
+			smoothed3DOFFacingDir = Helpers::Lerp(smoothed3DOFFacingDir, facingDir, t);
+			facingDir = smoothed3DOFFacingDir;
+			facingDir.normalize();
+		}
+		else
+		{
+			// No smoothing - update cached value for when smoothing is re-enabled
+			smoothed3DOFFacingDir = facingDir;
+		}
+
+		// Use world up (0, 0, 1) to derive a roll-free orientation
+		// Cross product of world up and facing gives us the right vector
+		Vector3 worldUp(0.0f, 0.0f, 1.0f);
+		Vector3 rightDir = worldUp.cross(facingDir);
+		rightDir.normalize();
+
+		// Cross product of facing and right gives us the corrected up vector (roll-free)
+		Vector3 upDir = facingDir.cross(rightDir);
+		upDir.normalize();
+
+		facing->x = facingDir.x;
+		facing->y = facingDir.y;
+		facing->z = facingDir.z;
+
+		up->x = upDir.x;
+		up->y = upDir.y;
+		up->z = upDir.z;
+	}
+	else
+	{
+		// 6DOF MODE: Standard camera-relative orientation
+		// Reset the 3DOF mode flag so we reinitialize when switching back
+		bWasIn3DOFMode = false;
+
+		facing->x = 1.0f;
+		facing->y = 0.0f;
+		facing->z = 0.0f;
+
+		up->x = 0.0f;
+		up->y = 0.0f;
+		up->z = 1.0f;
+	}
 
 	Asset_ModelAnimations* viewModel = Helpers::GetTypedAsset<Asset_ModelAnimations>(id);
 	if (!viewModel)
@@ -90,9 +184,6 @@ void WeaponHandler::UpdateViewModel(HaloID& id, Vector3* pos, Vector3* facing, V
 	{
 		UpdateCache(id, animationData);
 	}
-
-	Matrix4 handTransform;
-	CalculateHandTransform(pos, handTransform);
 
 	Transform unmodifiedHandTransform;
 	CalculateBoneTransform(cachedViewModel.rightWristIndex, boneArray, root, boneTransforms, unmodifiedHandTransform);
@@ -154,135 +245,153 @@ void WeaponHandler::UpdateViewModel(HaloID& id, Vector3* pos, Vector3* facing, V
 			realTransforms[boneIndex] = outBoneTransforms[boneIndex];
 			if (currentBone.Parent == 0 || boneArray[currentBone.Parent].Parent == 0)
 			{
-				// Hide arms/root
-				outBoneTransforms[boneIndex].scale = 0.0f;
+				// Hide arms/root in 6DOF mode only
+				if (!Game::instance.bUse3DOFAiming)
+				{
+					outBoneTransforms[boneIndex].scale = 0.0f;
+				}
 			}
 			else if (boneIndex == cachedViewModel.rightWristIndex)
 			{
-				// This is dreadful code. Rework to be less insane
-				if (!Game::instance.bUseTwoHandAim)
+				// Skip VR hand tracking in 3DOF mode - use original weapon bone transforms
+				if (!Game::instance.bUse3DOFAiming)
 				{
-					Matrix4 newTransform = handTransform;
-					if (currentBone.RightLeaf != -1)
+					// 6DOF MODE: VR hand tracking
+					// This is dreadful code. Rework to be less insane
+					if (!Game::instance.bUseTwoHandAim)
 					{
-						Bone& GunBone = boneArray[currentBone.RightLeaf];
-						if (currentBone.RightLeaf == cachedViewModel.gunIndex)
+						Matrix4 newTransform = handTransform;
+						if (currentBone.RightLeaf != -1)
 						{
-							const TransformQuat* GunQuat = &boneTransforms[currentBone.RightLeaf];
-							Helpers::MakeTransformFromQuat(&GunQuat->rotation, &tempTransform);
-
-							Matrix4 rotation;
-							for (int x = 0; x < 3; x++)
+							Bone& GunBone = boneArray[currentBone.RightLeaf];
+							if (currentBone.RightLeaf == cachedViewModel.gunIndex)
 							{
-								for (int y = 0; y < 3; y++)
+								const TransformQuat* GunQuat = &boneTransforms[currentBone.RightLeaf];
+								Helpers::MakeTransformFromQuat(&GunQuat->rotation, &tempTransform);
+
+								Matrix4 rotation;
+								for (int x = 0; x < 3; x++)
 								{
-									rotation[x + y * 4] = tempTransform.rotation[x + y * 3];
+									for (int y = 0; y < 3; y++)
+									{
+										rotation[x + y * 4] = tempTransform.rotation[x + y * 3];
+									}
 								}
-							}
 
-							if (Game::instance.bLeftHanded)
+								if (Game::instance.bLeftHanded)
+								{
+									Matrix4 scale;
+									scale.scale(1.0f, -1.0f, 1.0f);
+
+									rotation = scale * rotation * scale;
+								}
+
+								newTransform = newTransform * rotation.invert();
+							}
+							else
 							{
-								Matrix4 scale;
-								scale.scale(1.0f, -1.0f, 1.0f);
-
-								rotation = scale * rotation * scale;
+								Logger::log << "ERROR: Right leaf of " << currentBone.BoneName << " is " << GunBone.BoneName << std::endl;
 							}
 
-							newTransform = newTransform * rotation.invert();
 						}
-						else
-						{
-							Logger::log << "ERROR: Right leaf of " << currentBone.BoneName << " is " << GunBone.BoneName << std::endl;
-						}
-
-					}
-					MoveBoneToTransform(boneIndex, newTransform, realTransforms, outBoneTransforms);
-				}
-				else
-				{
-					MoveBoneToTransform(boneIndex, handTransform, realTransforms, outBoneTransforms);
-				}
-				CreateEndCap(boneIndex, currentBone, outBoneTransforms);
-			}
-			else if (boneIndex == cachedViewModel.leftWristIndex)
-			{
-				if (!Game::instance.bUseTwoHandAim)
-				{
-					Matrix4 newTransform = Game::instance.GetVR()->GetControllerTransform(Game::instance.bLeftHanded ? ControllerRole::Right : ControllerRole::Left, true);
-					// Apply scale only to translation portion
-					Vector3 translation = newTransform * Vector3(0.0f, 0.0f, 0.0f);
-					newTransform.translate(-translation);
-					translation *= Game::instance.MetresToWorld(1.0f);
-					translation += *pos;
-					newTransform.translate(translation);
-
-					MoveBoneToTransform(boneIndex, newTransform, realTransforms, outBoneTransforms);
-				}
-				else
-				{
-					// Convert both hand transforms to matrix4
-					Matrix4 leftMatrix;
-					TransformToMatrix4(outBoneTransforms[boneIndex], leftMatrix);
-					Matrix4 rightMatrix;
-					TransformToMatrix4(unmodifiedHandTransform, rightMatrix);
-
-					// Get inverse of dominant hand, apply it to non-dominant to get delta
-					rightMatrix.invertAffine();
-					Matrix4 deltaMatrix = rightMatrix * leftMatrix;
-
-					if (Game::instance.bLeftHanded)
-					{						
-						Matrix4 flip;
-						flip.scale(1.0f, -1.0f, 1.0f);
-						
-						deltaMatrix = flip * deltaMatrix * flip;
-						leftMatrix = handTransform * deltaMatrix;
+						MoveBoneToTransform(boneIndex, newTransform, realTransforms, outBoneTransforms);
 					}
 					else
 					{
-						// Apply delta to controller transform
-						leftMatrix = handTransform * deltaMatrix;
+						MoveBoneToTransform(boneIndex, handTransform, realTransforms, outBoneTransforms);
+					}
+					CreateEndCap(boneIndex, currentBone, outBoneTransforms);
+				}
+			}
+			else if (boneIndex == cachedViewModel.leftWristIndex)
+			{
+				// Skip VR hand tracking in 3DOF mode - use original weapon bone transforms
+				if (!Game::instance.bUse3DOFAiming)
+				{
+					// 6DOF MODE: VR hand tracking
+					if (!Game::instance.bUseTwoHandAim)
+					{
+						Matrix4 newTransform = Game::instance.GetVR()->GetControllerTransform(Game::instance.bLeftHanded ? ControllerRole::Right : ControllerRole::Left, true);
+						// Apply scale only to translation portion
+						Vector3 translation = newTransform * Vector3(0.0f, 0.0f, 0.0f);
+						newTransform.translate(-translation);
+						translation *= Game::instance.MetresToWorld(1.0f);
+						translation += *pos;
+						newTransform.translate(translation);
+
+						MoveBoneToTransform(boneIndex, newTransform, realTransforms, outBoneTransforms);
+					}
+					else
+					{
+						// Convert both hand transforms to matrix4
+						Matrix4 leftMatrix;
+						TransformToMatrix4(outBoneTransforms[boneIndex], leftMatrix);
+						Matrix4 rightMatrix;
+						TransformToMatrix4(unmodifiedHandTransform, rightMatrix);
+
+						// Get inverse of dominant hand, apply it to non-dominant to get delta
+						rightMatrix.invertAffine();
+						Matrix4 deltaMatrix = rightMatrix * leftMatrix;
+
+						if (Game::instance.bLeftHanded)
+						{
+							Matrix4 flip;
+							flip.scale(1.0f, -1.0f, 1.0f);
+
+							deltaMatrix = flip * deltaMatrix * flip;
+							leftMatrix = handTransform * deltaMatrix;
+						}
+						else
+						{
+							// Apply delta to controller transform
+							leftMatrix = handTransform * deltaMatrix;
+						}
+
+						// Move non-dominant hand to new transform
+						MoveBoneToTransform(boneIndex, leftMatrix, realTransforms, outBoneTransforms);
 					}
 
-					// Move non-dominant hand to new transform
-					MoveBoneToTransform(boneIndex, leftMatrix, realTransforms, outBoneTransforms);
-				}
-
-				CreateEndCap(boneIndex, currentBone, outBoneTransforms);
+					CreateEndCap(boneIndex, currentBone, outBoneTransforms);
+				}				
 			}
 			else if (boneIndex == cachedViewModel.gunIndex)
 			{
-				Vector3& gunPos = outBoneTransforms[boneIndex].translation;
-				Matrix3 gunRot = outBoneTransforms[boneIndex].rotation;
-
-				if (Game::instance.bLeftHanded)
+				// Skip hand-relative gun calculations in 3DOF mode
+				if (!Game::instance.bUse3DOFAiming)
 				{
-					gunRot = gunRot * Matrix3(
-						1.0f, 0.0f, 0.0f,
-						0.0f, -1.0f, 0.0f,
-						0.0f, 0.0f, 1.0f
-					);
-				}
+					// 6DOF MODE: Calculate gun position/rotation relative to hand
+					Vector3& gunPos = outBoneTransforms[boneIndex].translation;
+					Matrix3 gunRot = outBoneTransforms[boneIndex].rotation;
 
-				Vector3 handPos = handTransform * Vector3(0.0f, 0.0f, 0.0f);
-				Matrix4 handRotation = handTransform.translate(-handPos);
-				Matrix3 handRotation3;
+					if (Game::instance.bLeftHanded)
+					{
+						gunRot = gunRot * Matrix3(
+							1.0f, 0.0f, 0.0f,
+							0.0f, -1.0f, 0.0f,
+							0.0f, 0.0f, 1.0f
+						);
+					}
 
-				for (int i = 0; i < 3; i++)
-				{
-					handRotation3.setColumn(i, &handRotation.get()[i * 4]);
-				}
+					Vector3 handPos = handTransform * Vector3(0.0f, 0.0f, 0.0f);
+					Matrix4 handRotation = handTransform.translate(-handPos);
+					Matrix3 handRotation3;
 
-				Matrix3 inverseHand = handRotation3;
-				inverseHand.invert();
+					for (int i = 0; i < 3; i++)
+					{
+						handRotation3.setColumn(i, &handRotation.get()[i * 4]);
+					}
 
-				cachedViewModel.fireOffset = (gunPos - handPos) + (gunRot * cachedViewModel.cookedFireOffset);
-				cachedViewModel.fireOffset = inverseHand * cachedViewModel.fireOffset;
+					Matrix3 inverseHand = handRotation3;
+					inverseHand.invert();
 
-				cachedViewModel.gunOffset = (gunPos - handPos);
-				cachedViewModel.gunOffset = inverseHand * cachedViewModel.gunOffset;
+					cachedViewModel.fireOffset = (gunPos - handPos) + (gunRot * cachedViewModel.cookedFireOffset);
+					cachedViewModel.fireOffset = inverseHand * cachedViewModel.fireOffset;
 
-				cachedViewModel.fireRotation = cachedViewModel.cookedFireRotation * gunRot * inverseHand;
+					cachedViewModel.gunOffset = (gunPos - handPos);
+					cachedViewModel.gunOffset = inverseHand * cachedViewModel.gunOffset;
+
+					cachedViewModel.fireRotation = cachedViewModel.cookedFireRotation * gunRot * inverseHand;
+				}				
 			}
 
 #if DRAW_DEBUG_AIM
