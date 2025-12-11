@@ -305,13 +305,13 @@ UIPanel* SettingsMenu::GenerateSettingsPanel(std::string propertyName, class UIP
 
 		buttonY->onClick = [vectorProperty, buttonY]() {
 			Vector3 value = vectorProperty->Value();
-			value.x = buttonY->floatValue;
+			value.y = buttonY->floatValue;
 			vectorProperty->SetValue(value);
 		};
 
 		buttonZ->onClick = [vectorProperty, buttonZ]() {
 			Vector3 value = vectorProperty->Value();
-			value.x = buttonZ->floatValue;
+			value.z = buttonZ->floatValue;
 			vectorProperty->SetValue(value);
 		};
 
