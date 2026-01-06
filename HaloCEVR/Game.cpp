@@ -21,6 +21,7 @@
 
 #include "UI/UIRenderer.h"
 #include "Helpers/Version.h"
+#include "Helpers/Cutscene.h"
 
 void Game::Init()
 {
@@ -759,6 +760,8 @@ void Game::UpdateInputs()
 	VR_PROFILE_SCOPE(Game_UpdateInputs);
 	inputHandler.UpdateInputs(bInVehicle);
 
+	UpdateRoomScaleMovement();
+
 #if USE_PROFILER
 	static bool bWasPressed = false;
 
@@ -777,6 +780,61 @@ void Game::CalculateSmoothedInput()
 {
 	VR_PROFILE_SCOPE(Game_CalculateSmoothedInput);
 	inputHandler.CalculateSmoothedInput();
+}
+
+void Game::UpdateRoomScaleMovement()
+{
+	VR_PROFILE_SCOPE(Game_UpdateRoomScaleMovement);
+
+	if (!c_RoomScaleMovement->Value())
+	{
+		return;
+	}
+
+	UnitDynamicObject* Player = static_cast<UnitDynamicObject*>(Helpers::GetLocalPlayer());
+
+	const bool bNoPlayer = Player == nullptr;
+	const bool bInCutscene = Helpers::GetCutsceneData()->bInCutscene;
+
+	// Restrict roomscale movement to normal movement (there's probably an elegant way to determine if the player can move, but I haven't RE'd it)
+	if (bNoPlayer || bInCutscene || bInVehicle)
+	{
+		bIgnoreNextRoomScaleMovement = true;
+		return;
+	}
+
+	// Calculate real-world offset from last frame
+	Vector3 headPos = vr->GetHMDTransform(true) * Vector3(0.0f, 0.0f, 0.0f);
+
+	// Convert to game units
+	Vector3 desiredOffset = headPos * MetresToWorld(1.0f);
+	desiredOffset.z = 0.0f;
+
+	const float Rotation = vr->GetYawOffset() * (3.141593f / 180.0f);
+
+#if 0
+	inGameRenderer.DrawPolygon(Player->position + desiredOffset, Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f), 4, MetresToWorld(0.25f), D3DCOLOR_ARGB(50, 85, 250, 239), false);
+#endif
+
+	// Directly adjust position, collisions are handled later in the tick
+	if (!bIgnoreNextRoomScaleMovement)
+	{
+		Player->position += desiredOffset;
+	}
+	bIgnoreNextRoomScaleMovement = false;
+
+	{
+		// Rotate desiredOffset by yaw offset
+		const float cosAngle = std::cos(Rotation);
+		const float sinAngle = std::sin(Rotation);
+		const float newX = desiredOffset.x * cosAngle - desiredOffset.y * sinAngle;
+		const float newY = desiredOffset.x * sinAngle + desiredOffset.y * cosAngle;
+		desiredOffset.x = newX;
+		desiredOffset.y = newY;
+	}
+
+	// Move the camera offset backwards to recentre the player
+	vr->SetLocationOffset(desiredOffset * WorldToMetres(1.0f) + vr->GetLocationOffset());
 }
 
 bool Game::GetCalculatedHandPositions(Matrix4& controllerTransform, Vector3& dominantHandPos, Vector3& offHand)
@@ -960,6 +1018,7 @@ void Game::SetupConfigs()
 	c_SnapTurn = config.RegisterBool("SnapTurn", "The look input will instantly rotate the view by a fixed amount, rather than smoothly rotating", true);
 	c_SnapTurnAmount = config.RegisterFloat("SnapTurnAmount", "Rotation in degrees a single snap turn will rotate the view by", 45.0f);
 	c_SmoothTurnAmount = config.RegisterFloat("SmoothTurnAmount", "Rotation in degrees per second the view will turn at when not using snap turning", 90.0f);
+	c_RoomScaleMovement = config.RegisterBool("RoomScaleMovement", "Attempt to move the character to always match the headset's position. (May cause motion sickness, as collisions can cause a desync between physical and in-game movements)", false);
 	c_HandRelativeMovement = config.RegisterInt("HandRelativeMovement", "Movement is relative to hand orientation, rather than head, 0 = off, 1 = left, 2 = right", 0);
 	c_HandRelativeOffsetRotation = config.RegisterFloat("HandRelativeOffsetRotation", "Hand direction rotational offset in degrees used for hand-relative movement", -20.0f);
 	c_HorizontalVehicleTurnAmount = config.RegisterFloat("HorizontalVehicleTurnAmount", "Rotation in degrees per second the view will turn horizontally when in vehicles (<0 to invert)", 90.0f);

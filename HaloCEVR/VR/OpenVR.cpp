@@ -191,6 +191,7 @@ void OpenVR::OnGameFinishInit()
 	// UI Layers
 	CreateTexAndSurface(uiSurface, Game::instance.overlayWidth, Game::instance.overlayHeight, desc2.Usage, desc2.Format);
 	CreateTexAndSurface(crosshairSurface, Game::instance.overlayWidth, Game::instance.overlayHeight, desc2.Usage, desc2.Format);
+	
 	scopeWidth = static_cast<uint32_t>(Game::instance.c_ScopeRenderScale->Value() * recommendedWidth);
 	scopeHeight = static_cast<uint32_t>(Game::instance.c_ScopeRenderScale->Value() * recommendedWidth * 0.75f); // Maintain the 4x3 aspect ratio halo works best with
 	CreateTexAndSurface(scopeSurface, scopeWidth, scopeHeight, desc2.Usage, desc2.Format);
@@ -562,7 +563,11 @@ void OpenVR::Recentre()
 
 void OpenVR::SetLocationOffset(Vector3 newOffset)
 {
+	Vector3 OldTransform = GetHMDTransform() * Vector3(0.0f, 0.0f, 0.0f);
+
 	positionOffset = newOffset;
+
+	Logger::log << "Updated Loc Offset. New offset = " << newOffset << ", old HMD transform = " << OldTransform << ", new HMD transform = " << (GetHMDTransform() * Vector3(0.0f, 0.0f, 0.0f)) << std::endl;
 }
 
 Vector3 OpenVR::GetLocationOffset()
@@ -572,7 +577,11 @@ Vector3 OpenVR::GetLocationOffset()
 
 void OpenVR::SetYawOffset(float newOffset)
 {
+	Vector3 OldTransform = GetHMDTransform() * Vector3(0.0f, 0.0f, 0.0f);
+
 	yawOffset = newOffset;
+
+	Logger::log << "Updated Yaw Offset. New offset = " << newOffset << ", old HMD transform = " << OldTransform << ", new HMD transform = " << (GetHMDTransform() * Vector3(0.0f, 0.0f, 0.0f)) << std::endl;
 }
 
 float OpenVR::GetYawOffset()

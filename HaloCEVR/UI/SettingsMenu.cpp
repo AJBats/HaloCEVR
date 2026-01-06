@@ -336,7 +336,8 @@ void SettingsMenu::PopulateBasicSettingsTab()
 		"HandRelativeMovement",
 		"EnableWeaponHolsters",
 		"ShowCrosshair",
-		"ShowRoomCentre"
+		"ShowRoomCentre",
+		"RoomScaleMovement"
 	};
 
 	// Clear out everything in case this is a refresh after reverting

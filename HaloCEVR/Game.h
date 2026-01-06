@@ -63,6 +63,7 @@ public:
 
 	void UpdateInputs();
 	void CalculateSmoothedInput();
+	void UpdateRoomScaleMovement();
 
 	void UpdateCamera(float& yaw, float& pitch);
 	void SetMousePosition(int& x, int& y);
@@ -185,6 +186,8 @@ protected:
 
 	bool bWasLoading = false;
 
+	bool bIgnoreNextRoomScaleMovement = false;
+
 	//======Configs======//
 public:
 
@@ -203,6 +206,7 @@ public:
 	BoolProperty* c_SnapTurn = nullptr;
 	FloatProperty* c_SnapTurnAmount = nullptr;
 	FloatProperty* c_SmoothTurnAmount = nullptr;
+	BoolProperty* c_RoomScaleMovement = nullptr;
 	IntProperty* c_HandRelativeMovement = nullptr;
 	FloatProperty* c_HandRelativeOffsetRotation = nullptr;
 	FloatProperty* c_HorizontalVehicleTurnAmount = nullptr;
