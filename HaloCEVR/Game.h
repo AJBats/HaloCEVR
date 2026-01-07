@@ -75,7 +75,7 @@ public:
 
 	ERenderState GetRenderState() const { return renderState; }
 
-	float GetScopeSize() const { return c_ScopeScale->Value(); }
+	float GetScopeSize() const { return bUse3DOFAiming ? c_3DOFScopeScale->Value() : c_ScopeScale->Value(); }
 
 	float MetresToWorld(float m) const;
 	float WorldToMetres(float w) const;
@@ -92,6 +92,7 @@ public:
 	bool bNeedsRecentre = true;
 	bool bUseTwoHandAim = false;
 	bool bLeftHanded = false;
+	bool bUse3DOFAiming = false;
 
 	Config config;
 
@@ -243,5 +244,9 @@ public:
 	FloatProperty* c_TEMPViewportRight = nullptr;
 	FloatProperty* c_TEMPViewportTop = nullptr;
 	FloatProperty* c_TEMPViewportBottom = nullptr;
+	BoolProperty* c_Use3DOFAiming = nullptr;
+	Vector3Property* c_3DOFWeaponOffset = nullptr;
+	FloatProperty* c_3DOFWeaponSmoothingAmount = nullptr;
+	FloatProperty* c_3DOFScopeScale = nullptr;
 };
 

@@ -51,6 +51,7 @@ void Game::Init()
 	vr->Init();
 
 	Game::instance.bLeftHanded = Game::instance.c_LeftHanded->Value();
+	Game::instance.bUse3DOFAiming = Game::instance.c_Use3DOFAiming->Value();
 	inputHandler.RegisterInputs();
 
 	backBufferWidth = vr->GetViewWidth();
@@ -397,7 +398,11 @@ void Game::PostDrawScope(Renderer* renderer, float deltaTime)
 		innerSize = Vector2(scopeWidth, scopeHeight);
 	}
 
-	scopeRenderer.DrawInvertedShape2D(centre, innerSize, size, sides, radius, color);
+	// For 3DOF we want to show more of the original scope graphics
+	if (!bUse3DOFAiming)
+	{
+		scopeRenderer.DrawInvertedShape2D(centre, innerSize, size, sides, radius, color);
+	}
 
 	scopeRenderer.Render(Helpers::GetDirect3DDevice9());
 	scopeRenderer.PostRender();
@@ -758,6 +763,10 @@ void Game::PostThrowGrenade(HaloID& playerID)
 void Game::UpdateInputs()
 {
 	VR_PROFILE_SCOPE(Game_UpdateInputs);
+
+	// Hot reload this flag
+	bUse3DOFAiming = c_Use3DOFAiming->Value();
+
 	inputHandler.UpdateInputs(bInVehicle);
 
 	UpdateRoomScaleMovement();
@@ -1036,7 +1045,7 @@ void Game::SetupConfigs()
 	c_ControllerOffset = config.RegisterVector3("ControllerOffset", "Offset from the controller's position used when calculating the in game hand position", Vector3(0.0f, 0.0f, 0.0f));
 	c_ControllerRotation = config.RegisterVector3("ControllerRotation", "Rotation added to the controller when calculating the in game hand rotation", Vector3(0.0f, 0.0f, 0.0f));
 	c_ScopeRenderScale = config.RegisterFloat("ScopeRenderScale", "Size of the scope render target, expressed as a proportion of the headset's render scale (e.g. 0.5 = half resolution)", 1.0f);
-	c_ScopeScale = config.RegisterFloat("ScopeScale", "Width of the scope view in metres", 0.05f);
+	c_ScopeScale = config.RegisterFloat("ScopeScale", "Width of the scope view in metres (6DOF mode)", 0.05f);	
 	c_LockScopeRoll = config.RegisterBool("LockScopeRoll", "Set to true to keep the horizon level at all times in scopes. Leaving as false causes the scope view to rotate with the gun (pre-v1.3.0 behaviour)", true);
 	c_ScopeOffsetPistol = config.RegisterVector3("ScopeOffsetPistol", "Offset of the scope view relative to the pistol's location", Vector3(-0.1f, 0.0f, 0.15f));
 	c_ScopeOffsetSniper = config.RegisterVector3("ScopeOffsetSniper", "Offset of the scope view relative to the pistol's location", Vector3(-0.15f, 0.0f, 0.15f));
@@ -1044,6 +1053,10 @@ void Game::SetupConfigs()
 	c_WeaponSmoothingAmountNoZoom = config.RegisterFloat("UnzoomedWeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when not zoomed in (0 is disabled, 2.0 is maximum, recommended around 0-0.7)", 0.0f);
 	c_WeaponSmoothingAmountOneZoom = config.RegisterFloat("Zoom1WeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when zoomed in once, eg zooming on the pistol (0 is disabled, 2.0 is maximum, recommended around 0.3-1.0)", 0.4f);
 	c_WeaponSmoothingAmountTwoZoom = config.RegisterFloat("Zoom2WeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when zoomed in twice, eg second zoom on sniper (0 is disabled, 2.0 is maximum, recommended around 0.6-1.25)", 0.6f);
+	c_Use3DOFAiming = config.RegisterBool("Use3DOFAiming", "Use controller rotation only for aiming (3DOF) instead of position+rotation (6DOF). When enabled, weapon models follow hand position but bullets fire based on controller rotation only", false);
+	c_3DOFWeaponOffset = config.RegisterVector3("3DOFWeaponOffset", "This is a cosmetic setting for the position offset for the 3DOF weapon model. This has no impact on gameplay. (right, forward, up in metres). Use negative Z to lower the weapon", Vector3(0.0f, 0.0f, -0.08f));
+	c_3DOFWeaponSmoothingAmount = config.RegisterFloat("3DOFWeaponSmoothingAmount", "This is a cosmetic setting that controls the amount of smoothing applied to 3DOF weapon facing direction. This has no impact on gameplay. (0 is disabled, 2.0 is maximum, default is 1.5)", 1.5f);
+	c_3DOFScopeScale = config.RegisterFloat("3DOFScopeScale", "Width of the scope view in metres (3DOF mode)", 7.f);
 	// Weapon holster settings
 	c_EnableWeaponHolsters = config.RegisterBool("EnableWeaponHolsters", "When enabled Weapons can only be switched by using the 'SwitchWeapons' binding while the dominant hand is within distance of a holster", true);
 	c_LeftShoulderHolsterActivationDistance = config.RegisterFloat("LeftShoulderHolsterDistance", "The 'size' of the left shoulder holster. This is the distance that the dominant hand needs to be from the holster to change weapons (<0 to disable)", 0.3f);
@@ -1247,7 +1260,21 @@ void Game::UpdateCrosshairAndScope()
 
 	short zoom = Helpers::GetInputData().zoomLevel;
 
-	bool bHasScope = (zoom != -1) && weaponHandler.GetLocalWeaponScope(aimPos, aimDir, upDir);
+	bool bHasScope;
+	Vector3 scopePos;
+
+	if (bUse3DOFAiming)
+	{
+		// 3DOF MODE: Position scope at crosshair location (targetPos)
+		bHasScope = (zoom != -1);
+		scopePos = targetPos;
+	}
+	else
+	{
+		// 6DOF MODE: Use weapon scope position (original behavior)
+		bHasScope = (zoom != -1) && weaponHandler.GetLocalWeaponScope(aimPos, aimDir, upDir);
+		scopePos = aimPos;
+	}
 
 	if (!bHasScope)
 	{
@@ -1255,10 +1282,10 @@ void Game::UpdateCrosshairAndScope()
 		return;
 	}
 
-	overlayTransform.translate(aimPos);
-	overlayTransform.lookAt(aimPos - aimDir, upDir);
+	overlayTransform.translate(scopePos);
+	overlayTransform.lookAt(scopePos - aimDir, upDir);
 
-	fixupRotation(overlayTransform, aimPos);
+	fixupRotation(overlayTransform, scopePos);
 
 	SetScopeTransform(overlayTransform, true);
 }
@@ -1293,7 +1320,7 @@ void Game::SetScopeTransform(Matrix4& newTransform, bool bIsVisible)
 	inGameRenderer.DrawPolygon(pos, scopeFacing, scopeUp, 32, MetresToWorld(GetScopeSize() * 0.5f), D3DCOLOR_ARGB(0, 0, 0, 0), false);
 
 	float SCOPE_DEPTH = 2.0f;
-	float SCOPE_INNER_SCALE = 80.0f;
+	float SCOPE_INNER_SCALE = bUse3DOFAiming ? 1.6f : 80.0f;
 
 	pos = pos - scopeFacing * MetresToWorld(SCOPE_DEPTH);
 	size *= SCOPE_INNER_SCALE;

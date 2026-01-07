@@ -21,4 +21,5 @@ namespace Helpers
 	void MakeTransformFromQuat(const Vector4* quaternion, Transform* outTransform);
 	void CombineTransforms(const Transform* transformA, const Transform* transformB, Transform* outTransform);
 	Vector3 Lerp(const Vector3& a, const Vector3& b, float t);
+	void RotateForSnapTurn(Vector3& vec, float yawDelta, float snapTurnAmount);
 }

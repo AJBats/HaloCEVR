@@ -123,3 +123,26 @@ Vector3 Helpers::Lerp(const Vector3& a, const Vector3& b, float t)
 {
 	return a + t * (b - a);
 }
+
+void Helpers::RotateForSnapTurn(Vector3& vec, float yawDelta, float snapTurnAmount)
+{
+	// 50% threshold to avoid false positives from smooth turning
+	float snapTurnThreshold = snapTurnAmount * 0.5f;
+
+	if (abs(yawDelta) <= snapTurnThreshold)
+		return;
+
+	// Convert degrees to radians, negate for VR system convention
+	const float DEG2RAD = 3.141593f / 180.0f;
+	float yawDeltaRad = -yawDelta * DEG2RAD;
+	float cosTheta = cos(yawDeltaRad);
+	float sinTheta = sin(yawDeltaRad);
+
+	// Apply 2D rotation matrix around Z axis
+	float newX = vec.x * cosTheta - vec.y * sinTheta;
+	float newY = vec.x * sinTheta + vec.y * cosTheta;
+
+	vec.x = newX;
+	vec.y = newY;
+	// Z component unchanged (yaw rotation only)
+}
