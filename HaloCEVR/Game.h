@@ -75,7 +75,9 @@ public:
 
 	ERenderState GetRenderState() const { return renderState; }
 
-	float GetScopeSize() const { return bUse3DOFAiming ? c_3DOFScopeScale->Value() : c_ScopeScale->Value(); }
+	bool ShouldUseOriginalScope() const { return bUse3DOFAiming || c_UseOriginalScope->Value(); }
+
+	float GetScopeSize() const { return ShouldUseOriginalScope() ? c_3DOFScopeScale->Value() : c_ScopeScale->Value(); }
 
 	float MetresToWorld(float m) const;
 	float WorldToMetres(float w) const;
@@ -245,6 +247,7 @@ public:
 	FloatProperty* c_TEMPViewportTop = nullptr;
 	FloatProperty* c_TEMPViewportBottom = nullptr;
 	BoolProperty* c_Use3DOFAiming = nullptr;
+	BoolProperty* c_UseOriginalScope = nullptr;
 	Vector3Property* c_3DOFWeaponOffset = nullptr;
 	FloatProperty* c_3DOFWeaponSmoothingAmount = nullptr;
 	FloatProperty* c_3DOFScopeScale = nullptr;
