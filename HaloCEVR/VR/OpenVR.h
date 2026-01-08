@@ -50,6 +50,11 @@ public:
 	Vector2 GetVector2Input(InputBindingID id) override;
 	Vector2 GetMousePos() override;
 	bool GetMouseDown() override;
+	void ShowKeyboard(const std::string& textBuffer) override;
+	bool IsKeyboardVisible() override;
+	void HideKeyboard() override;
+	std::string GetKeyboardInput() override;
+	std::string GetDeviceName() override;
 	void TriggerHapticVibration(ControllerRole role, float fStartSecondsFromNow, float fDurationSeconds, float fFrequency, float fAmplitude) override;
 	void TriggerHapticPulse(ControllerRole role, short usDurationMicroSec) override;
 
@@ -85,8 +90,9 @@ protected:
 	Vector2 mousePos;
 	bool bMouseDown;
 
-	vr::VRActiveActionSet_t actionSets[1];
-
+	vr::VRActiveActionSet_t actionSets[2];
+	void SetActiveActionSet(int index, const std::string& actionSetName);
+	
 	vr::VROverlayHandle_t uiOverlay;
 
 	vr::TrackedDevicePose_t gamePoses[vr::k_unMaxTrackedDeviceCount];
@@ -120,6 +126,9 @@ protected:
 	vr::InputPoseActionData_t leftHandTipPose;
 	vr::InputPoseActionData_t rightHandTipPose;
 	bool bHasValidTipPoses = false;
+
+	char* keyboardBuffer = nullptr;
+	bool bKeyboardVisible = false;
 
 	Matrix4 ConvertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t& matPose)
 	{

@@ -3,10 +3,11 @@
 #include "Helpers/Controls.h"
 #include "Helpers/Camera.h"
 #include "Helpers/Menus.h"
+#include "Helpers/Maths.h"
 
 
-#define RegisterBoolInput(x) x = vr->RegisterBoolInput("default", #x);
-#define RegisterVector2Input(x) x = vr->RegisterVector2Input("default", #x);
+#define RegisterBoolInput(set, x) x = vr->RegisterBoolInput(set, #x);
+#define RegisterVector2Input(set, x) x = vr->RegisterVector2Input(set, #x);
 #define ApplyBoolInput(x) controls.##x = vr->GetBoolInput(x) ? 127 : 0;
 #define ApplyImpulseBoolInput(x) controls.##x = vr->GetBoolInput(x, bHasChanged) && bHasChanged ? 127 : 0;
 
@@ -14,23 +15,38 @@ void InputHandler::RegisterInputs()
 {
 	IVR* vr = Game::instance.GetVR();
 
-	RegisterBoolInput(Jump);
-	RegisterBoolInput(SwitchGrenades);
-	RegisterBoolInput(Interact);
-	RegisterBoolInput(SwitchWeapons);
-	RegisterBoolInput(Melee);
-	RegisterBoolInput(Flashlight);
-	RegisterBoolInput(Grenade);
-	RegisterBoolInput(Fire);
-	RegisterBoolInput(MenuForward);
-	RegisterBoolInput(MenuBack);
-	RegisterBoolInput(Crouch);
-	RegisterBoolInput(Zoom);
-	RegisterBoolInput(Reload);
-	RegisterBoolInput(TwoHandGrip);
+	// These bindings will always be the same and won't change depending on action sets
+	RegisterBoolInput("left handed", SwapWeaponHand);
+	OffhandSwapWeaponHand = SwapWeaponHand;
+	RegisterBoolInput("default", SwapWeaponHand);
 
-	RegisterVector2Input(Move);
-	RegisterVector2Input(Look);
+	UpdateRegisteredInputs();
+}
+
+void InputHandler::UpdateRegisteredInputs()
+{
+	IVR* vr = Game::instance.GetVR();
+
+	const char* actionSet = Game::instance.bLeftHanded ? "left handed" : "default";
+	
+	// These bindings will change depending on action sets
+	RegisterBoolInput(actionSet, Jump);
+	RegisterBoolInput(actionSet, SwitchGrenades);
+	RegisterBoolInput(actionSet, Interact);
+	RegisterBoolInput(actionSet, SwitchWeapons);
+	RegisterBoolInput(actionSet, Melee);
+	RegisterBoolInput(actionSet, Flashlight);
+	RegisterBoolInput(actionSet, Grenade);
+	RegisterBoolInput(actionSet, Fire);
+	RegisterBoolInput(actionSet, MenuForward);
+	RegisterBoolInput(actionSet, MenuBack);
+	RegisterBoolInput(actionSet, Crouch);
+	RegisterBoolInput(actionSet, Zoom);
+	RegisterBoolInput(actionSet, Reload);
+	RegisterBoolInput(actionSet, TwoHandGrip);
+
+	RegisterVector2Input(actionSet, Move);
+	RegisterVector2Input(actionSet, Look);
 }
 
 float AngleBetweenVector2(const Vector2& v1, const Vector2& v2)
@@ -59,27 +75,57 @@ void InputHandler::UpdateInputs(bool bInVehicle)
 
 	static bool bHasChanged = false;
 
-	Controls& controls = Helpers::GetControls();
+	if (Game::instance.bIsCustom)
+	{
+		Controls_Custom& controls = Helpers::GetControlsCustom();
 
-	ApplyBoolInput(Jump);
-	ApplyImpulseBoolInput(SwitchGrenades);
-	ApplyBoolInput(Interact);
-	ApplyBoolInput(Melee);
-	ApplyBoolInput(Flashlight);
-	ApplyBoolInput(Grenade);
-	ApplyBoolInput(Fire);
-	ApplyBoolInput(MenuForward);
-	ApplyBoolInput(MenuBack);
-	ApplyBoolInput(Crouch);
-	ApplyImpulseBoolInput(Zoom);
-	ApplyBoolInput(Reload);
+		ApplyBoolInput(Jump);
+		ApplyImpulseBoolInput(SwitchGrenades);
+		ApplyBoolInput(Interact);
+		ApplyBoolInput(Melee);
+		ApplyBoolInput(Flashlight);
+		ApplyBoolInput(Grenade);
+		ApplyBoolInput(Fire);
+		ApplyBoolInput(MenuForward);
+		ApplyBoolInput(MenuBack);
+		ApplyBoolInput(Crouch);
+		ApplyImpulseBoolInput(Zoom);
+		ApplyBoolInput(Reload);
 
-	Game::instance.bIsMouse1Down = controls.Fire;
+		Game::instance.bIsFiring = controls.Fire;
+	}
+	else
+	{
+		Controls& controls = Helpers::GetControls();
+
+		ApplyBoolInput(Jump);
+		ApplyImpulseBoolInput(SwitchGrenades);
+		ApplyBoolInput(Interact);
+		ApplyBoolInput(Melee);
+		ApplyBoolInput(Flashlight);
+		ApplyBoolInput(Grenade);
+		ApplyBoolInput(Fire);
+		ApplyBoolInput(MenuForward);
+		ApplyBoolInput(MenuBack);
+		ApplyBoolInput(Crouch);
+		ApplyImpulseBoolInput(Zoom);
+		ApplyBoolInput(Reload);
+
+		Game::instance.bIsFiring = controls.Fire;
+	}
+
 
 	unsigned char MotionControlFlashlight = UpdateFlashlight();
 	if (MotionControlFlashlight > 0)
 	{
-		controls.Flashlight = MotionControlFlashlight;
+		if (Game::instance.bIsCustom)
+		{
+			Helpers::GetControlsCustom().Flashlight = MotionControlFlashlight;
+		}
+		else
+		{
+			Helpers::GetControls().Flashlight = MotionControlFlashlight;
+		}
 	}
 
 	if (Game::instance.c_EnableWeaponHolsters->Value())
@@ -89,24 +135,56 @@ void InputHandler::UpdateInputs(bool bInVehicle)
 
 		if (HolsterSwitchWeapons > 0 && bSwitchWeaponsPressed)
 		{
-			ApplyImpulseBoolInput(SwitchWeapons);
+			if (Game::instance.bIsCustom)
+			{
+				Controls_Custom& controls = Helpers::GetControlsCustom();
+				ApplyImpulseBoolInput(SwitchWeapons);
+			}
+			else
+			{
+				Controls& controls = Helpers::GetControls();
+				ApplyImpulseBoolInput(SwitchWeapons);
+			}
 		}
 	}
 	else
 	{
-		ApplyImpulseBoolInput(SwitchWeapons);
+		if (Game::instance.bIsCustom)
+		{
+			Controls_Custom& controls = Helpers::GetControlsCustom();
+			ApplyImpulseBoolInput(SwitchWeapons);
+		}
+		else
+		{
+			Controls& controls = Helpers::GetControls();
+			ApplyImpulseBoolInput(SwitchWeapons);
+		}
 	}
 
 	unsigned char MotionControlMelee = UpdateMelee();
 	if (MotionControlMelee > 0)
 	{
-		controls.Melee = MotionControlMelee;
+		if (Game::instance.bIsCustom)
+		{
+			Helpers::GetControlsCustom().Melee = MotionControlMelee;
+		}
+		else
+		{
+			Helpers::GetControls().Melee = MotionControlMelee;
+		}
 	}
 
 	unsigned char MotionControlCrouch = UpdateCrouch();
 	if (MotionControlCrouch > 0)
 	{
-		controls.Crouch = MotionControlCrouch;
+		if (Game::instance.bIsCustom)
+		{
+			Helpers::GetControlsCustom().Crouch = MotionControlCrouch;
+		}
+		else
+		{
+			Helpers::GetControls().Crouch = MotionControlCrouch;
+		}
 	}
 
 	const float holdToRecentreTime = 1000.0f;
@@ -169,45 +247,7 @@ void InputHandler::UpdateInputs(bool bInVehicle)
 		SendInput(1, &input, sizeof(INPUT));
 	}
 
-	bool bGripChanged;
-	bool bIsGripping = vr->GetBoolInput(TwoHandGrip, bGripChanged);
-
-	if (Game::instance.c_ToggleGrip->Value())
-	{
-		if (bGripChanged && bIsGripping)
-		{
-			bWasGripping ^= true;
-		}
-
-		bIsGripping = bWasGripping;
-	}
-
-	float handDistance = Game::instance.c_TwoHandDistance->Value();
-
-	if (handDistance >= 0.0f)
-	{
-		if (bGripChanged)
-		{
-			if (bIsGripping)
-			{
-				const Vector3 leftPos = Game::instance.GetVR()->GetControllerTransform(ControllerRole::Left, true) * Vector3(0.0f, 0.0f, 0.0f);
-				const Vector3 rightPos = Game::instance.GetVR()->GetControllerTransform(ControllerRole::Right, true) * Vector3(0.0f, 0.0f, 0.0f);
-
-				if ((rightPos - leftPos).lengthSqr() < handDistance * handDistance)
-				{
-					Game::instance.bUseTwoHandAim = true;
-				}
-			}
-			else
-			{
-				Game::instance.bUseTwoHandAim = false;
-			}
-		}
-	}
-	else
-	{
-		Game::instance.bUseTwoHandAim = bIsGripping;
-	}
+	UpdateHandsProximity();
 
 	Vector2 MoveInput = vr->GetVector2Input(Move);
 
@@ -246,8 +286,20 @@ void InputHandler::UpdateInputs(bool bInVehicle)
 #endif
 	}
 
-	controls.Left = -MoveInput.x;
-	controls.Forwards = MoveInput.y;
+	if (Game::instance.bIsCustom)
+	{
+		Controls_Custom& controls = Helpers::GetControlsCustom();
+
+		controls.Left = -MoveInput.x;
+		controls.Forwards = MoveInput.y;
+	}
+	else
+	{
+		Controls& controls = Helpers::GetControls();
+
+		controls.Left = -MoveInput.x;
+		controls.Forwards = MoveInput.y;
+	}
 }
 
 void InputHandler::UpdateCamera(float& yaw, float& pitch)
@@ -338,7 +390,10 @@ unsigned char InputHandler::UpdateFlashlight()
 	float leftDistance = Game::instance.c_LeftHandFlashlightDistance->Value();
 	float rightDistance = Game::instance.c_RightHandFlashlightDistance->Value();
 
-	if (leftDistance > 0.0f)
+	bool offhandFlashlightEnabled = Game::instance.c_OffhandHandFlashlight->Value();
+
+	bool checkLeftHand = !offhandFlashlightEnabled || !Game::instance.bLeftHanded; 
+	if (checkLeftHand && leftDistance > 0.0f)
 	{
 		Vector3 handPos = vr->GetRawControllerTransform(ControllerRole::Left) * Vector3(0.0f, 0.0f, 0.0f);
 
@@ -348,7 +403,8 @@ unsigned char InputHandler::UpdateFlashlight()
 		}
 	}
 
-	if (rightDistance > 0.0f)
+	bool checkRightHand = !offhandFlashlightEnabled || Game::instance.bLeftHanded; 
+	if (checkRightHand && rightDistance > 0.0f)
 	{
 		Vector3 handPos = vr->GetRawControllerTransform(ControllerRole::Right) * Vector3(0.0f, 0.0f, 0.0f);
 
@@ -372,7 +428,7 @@ unsigned char InputHandler::UpdateHolsterSwitchWeapons()
 	Vector3 rightShoulderPos = headTransform * Game::instance.c_RightShoulderHolsterOffset->Value();
 
 	Vector3 handPos;
-	if (Game::instance.c_LeftHanded->Value())
+	if (Game::instance.bLeftHanded)
 	{
 		handPos = vr->GetRawControllerTransform(ControllerRole::Left) * Vector3(0.0f, 0.0f, 0.0f);
 	}
@@ -469,8 +525,8 @@ void InputHandler::UpdateMouseInfo(MouseInfo* mouseInfo)
 
 bool InputHandler::GetCalculatedHandPositions(Matrix4& controllerTransform, Vector3& dominantHandPos, Vector3& offHand)
 {
-	ControllerRole dominant = Game::instance.c_LeftHanded->Value() ? ControllerRole::Left : ControllerRole::Right;
-	ControllerRole nonDominant = Game::instance.c_LeftHanded->Value() ? ControllerRole::Right : ControllerRole::Left;
+	ControllerRole dominant = Game::instance.bLeftHanded ? ControllerRole::Left : ControllerRole::Right;
+	ControllerRole nonDominant = Game::instance.bLeftHanded ? ControllerRole::Right : ControllerRole::Left;
 
 	controllerTransform = Game::instance.GetVR()->GetControllerTransform(dominant, true);
 
@@ -515,6 +571,22 @@ void InputHandler::CalculateSmoothedInput()
 		return;
 	}
 
+	if (!bLastYawInitialized)
+	{
+		lastSmoothingYawOffset = Game::instance.GetVR()->GetYawOffset();
+		bLastYawInitialized = true;
+	}
+
+	// Detect snap turns and rotate smoothed position to prevent lerping artifact
+	float currentYawOffset = Game::instance.GetVR()->GetYawOffset();
+	float yawDelta = currentYawOffset - lastSmoothingYawOffset;
+
+	// Detect snap turns and rotate smoothed position
+	Helpers::RotateForSnapTurn(smoothedPosition, yawDelta, Game::instance.c_SnapTurnAmount->Value());
+
+	// Update tracked yaw offset for next frame
+	lastSmoothingYawOffset = currentYawOffset;
+
 	float userInput = 0.0f;
 	short zoom = Helpers::GetInputData().zoomLevel;
 
@@ -531,16 +603,126 @@ void InputHandler::CalculateSmoothedInput()
 		userInput = Game::instance.c_WeaponSmoothingAmountTwoZoom->Value();
 	}
 
-	float clampedValue = std::clamp(userInput, 0.0f, 1.0f);
+	float clampedValue = std::clamp(userInput, 0.0f, 2.0f);
+	if (clampedValue == 0.0f)
+	{
+		smoothedPosition = actualControllerPos + toOffHand;
+	}
+	else
+	{
+		const float scaleFactor = (-20.0f / 9.0f);
 
-	float maxSmoothing = 20.0f;		//20 is already a bit ridiculous but just incase people need that much smoothing. 
-	float speedRampup = 10.0f;		//This helps control the slowdown curve of the interpolation
+		float h = 90.0f * log2(1.0f - exp(clampedValue * scaleFactor));
 
-	// Apply the smoothing using linear interpolation with the adjusted deltaTime
-	float t = (clampedValue * maxSmoothing) * Game::instance.lastDeltaTime;
-	smoothedPosition = Helpers::Lerp(smoothedPosition, actualControllerPos + toOffHand, exp(-t * speedRampup));
+		float t = 1.0f - pow(2.0f, Game::instance.lastDeltaTime * h);
+
+		smoothedPosition = Helpers::Lerp(smoothedPosition, actualControllerPos + toOffHand, t);
+	}
 }
 
+void InputHandler::UpdateHandsProximity()
+{
+	float swapHandDistance = Game::instance.c_SwapHandDistance->Value();
+	
+	const Vector3 leftPos = Game::instance.GetVR()->GetControllerTransform(ControllerRole::Left, true) * Vector3(0.0f, 0.0f, 0.0f);
+	const Vector3 rightPos = Game::instance.GetVR()->GetControllerTransform(ControllerRole::Right, true) * Vector3(0.0f, 0.0f, 0.0f);
+	float handDistance = (rightPos - leftPos).lengthSqr();
+
+	bool handsWithinSwapWeaponDistance = false;
+	if (swapHandDistance >= 0.0f && handDistance < swapHandDistance * swapHandDistance)
+	{
+		handsWithinSwapWeaponDistance = true;
+		CheckSwapWeaponHand();
+	}
+
+	UpdateTwoHandedHold(handDistance, handsWithinSwapWeaponDistance);
+}
+
+void InputHandler::CheckSwapWeaponHand()
+{
+	IVR* vr = Game::instance.GetVR();
+
+	bool bWeaponHandChanged;
+	bool bOffhandWeaponHandChanged;
+	bool bIsSwitchHandsPressed = vr->GetBoolInput(SwapWeaponHand, bWeaponHandChanged);
+	bool bIsOffhandSwitchHandsPressed = vr->GetBoolInput(OffhandSwapWeaponHand, bOffhandWeaponHandChanged);
+
+	bool offHandGrabbedWeapon = false;
+	bool dominantHandReleasedWeapon = false;
+
+    if (!Game::instance.bLeftHanded)
+    {
+		offHandGrabbedWeapon = bIsSwitchHandsPressed && bWeaponHandChanged && !bIsOffhandSwitchHandsPressed;
+		dominantHandReleasedWeapon = bIsSwitchHandsPressed && !bIsOffhandSwitchHandsPressed && bOffhandWeaponHandChanged;
+    }
+    else
+    {
+        offHandGrabbedWeapon = bIsOffhandSwitchHandsPressed && bOffhandWeaponHandChanged && !bIsSwitchHandsPressed;
+		dominantHandReleasedWeapon = bIsOffhandSwitchHandsPressed && !bIsSwitchHandsPressed && bWeaponHandChanged;
+    }
+
+	if (offHandGrabbedWeapon || dominantHandReleasedWeapon)
+    {
+		// Enable left handed and update the bindings to use the relevant action set
+        Game::instance.bLeftHanded = !Game::instance.bLeftHanded;
+		
+		UpdateRegisteredInputs();
+    }
+}
+
+void InputHandler::UpdateTwoHandedHold(float handDistance, bool handsWithinSwapWeaponDistance)
+{
+	// Two hand aim is disabled when 3DOF is enabled.
+	if (Game::instance.bUse3DOFAiming) {
+		Game::instance.bUseTwoHandAim = false;
+		return;
+	}
+
+	IVR* vr = Game::instance.GetVR();
+
+	bool bGripChanged;
+	bool bIsGripping = vr->GetBoolInput(TwoHandGrip, bGripChanged);
+
+	if (handsWithinSwapWeaponDistance)
+	{
+		if (!bIsGripping) {
+	        Game::instance.bUseTwoHandAim = false;
+	    }
+		return;
+	}
+
+	if (Game::instance.c_ToggleGrip->Value())
+	{
+	    if (bGripChanged && bIsGripping)
+	    {
+	        bWasGripping ^= true;
+	    }
+	    bIsGripping = bWasGripping;
+	}
+
+	float twoHandDistance = Game::instance.c_TwoHandDistance->Value();
+	if (twoHandDistance >= 0.0f)
+	{
+	    if (bGripChanged)
+	    {
+	        if (bIsGripping)
+	        {
+				if (handDistance < twoHandDistance * twoHandDistance)
+	            {
+	                Game::instance.bUseTwoHandAim = true;
+	            }
+	        }
+	        else
+	        {
+	            Game::instance.bUseTwoHandAim = false;
+	        }
+	    }
+	}
+	else
+	{
+	    Game::instance.bUseTwoHandAim = bIsGripping;
+	}
+}
 
 #undef ApplyBoolInput
 #undef ApplyImpulseBoolInput

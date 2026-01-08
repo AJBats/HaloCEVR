@@ -124,7 +124,7 @@ void VREmulator::UpdateCameraFrustum(CameraFrustum* frustum, int eye)
 
 Matrix4 VREmulator::GetControllerTransform(ControllerRole role, bool bRenderPose)
 {
-	if (role == (Game::instance.c_LeftHanded->Value() ? ControllerRole::Right : ControllerRole::Left))
+	if (role == (Game::instance.bLeftHanded ? ControllerRole::Right : ControllerRole::Left))
 	{
 		return Matrix4().translate(0.0f, 0.25f, -0.25f);
 	}
@@ -211,6 +211,35 @@ void VREmulator::SetCrosshairTransform(Matrix4& newTransform)
 
 void VREmulator::UpdateInputs()
 {
+	if (bKeyboardActive)
+	{
+		for (size_t i = 32; i < 91; i++)
+		{
+			bool bPressed = GetAsyncKeyState(i) & 0x8000;
+			if (bPressed && !keystate[i])
+			{
+				keyboardBuffer += static_cast<unsigned char>(i);
+			}
+			keystate[i] = bPressed;
+		}
+
+		bool bSubtract = GetAsyncKeyState(VK_SUBTRACT) & 0x8000;
+		if (bSubtract && !keystate[VK_SUBTRACT])
+		{
+			keyboardBuffer += '-';
+		}
+		keystate[VK_SUBTRACT] = bSubtract;
+
+		bool bBackspace = GetAsyncKeyState(VK_BACK) & 0x8000;
+		if (bBackspace && !keystate[VK_BACK] && keyboardBuffer.size() > 0)
+		{
+			keyboardBuffer.pop_back();
+		}
+		keystate[VK_BACK] = bBackspace;
+
+		return;
+	}
+
 	for (size_t i = 0; i < arraySize(bindings); i++)
 	{
 		bool bPressed = GetAsyncKeyState(bindings[i].virtualKey) & 0x8000;
@@ -309,6 +338,33 @@ Vector2 VREmulator::GetVector2Input(InputBindingID id)
 		return Vector2(axes1D[axes2D[id].indexX], axes1D[axes2D[id].indexY]);
 	}
 	return Vector2();
+}
+
+void VREmulator::ShowKeyboard(const std::string& textBuffer)
+{
+	bKeyboardActive = true;
+	keyboardBuffer = textBuffer;
+}
+
+bool VREmulator::IsKeyboardVisible()
+{
+	return bKeyboardActive;
+}
+
+void VREmulator::HideKeyboard()
+{
+	bKeyboardActive = false;
+	keyboardBuffer = "";
+}
+
+std::string VREmulator::GetKeyboardInput()
+{
+	return keyboardBuffer;
+}
+
+std::string VREmulator::GetDeviceName()
+{
+	return "Emulator";
 }
 
 void VREmulator::PreDrawFrame(struct Renderer* renderer, float deltaTime)
@@ -428,7 +484,7 @@ void VREmulator::CreateSharedTarget()
 	CreateTexAndSurface(0, width, height, desc.Usage, desc.Format);
 	CreateTexAndSurface(1, width, height, desc.Usage, desc.Format);
 
-	HRESULT res = Helpers::GetDirect3DDevice9()->CreateTexture(Game::instance.c_UIOverlayWidth->Value(), Game::instance.c_UIOverlayHeight->Value(), 1, desc2.Usage, desc2.Format, D3DPOOL_DEFAULT, &uiTexture, NULL);
+	HRESULT res = Helpers::GetDirect3DDevice9()->CreateTexture(Game::instance.overlayWidth, Game::instance.overlayHeight, 1, desc2.Usage, desc2.Format, D3DPOOL_DEFAULT, &uiTexture, NULL);
 
 	if (FAILED(res))
 	{
@@ -442,7 +498,7 @@ void VREmulator::CreateSharedTarget()
 		Logger::log << "Couldn't create UI render target: " << res << std::endl;
 	}
 
-	res = Helpers::GetDirect3DDevice9()->CreateTexture(Game::instance.c_UIOverlayWidth->Value(), Game::instance.c_UIOverlayHeight->Value(), 1, desc2.Usage, desc2.Format, D3DPOOL_DEFAULT, &crosshairTexture, NULL);
+	res = Helpers::GetDirect3DDevice9()->CreateTexture(Game::instance.overlayWidth, Game::instance.overlayHeight, 1, desc2.Usage, desc2.Format, D3DPOOL_DEFAULT, &crosshairTexture, NULL);
 
 	if (FAILED(res))
 	{

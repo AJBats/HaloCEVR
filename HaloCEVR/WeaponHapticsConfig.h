@@ -1,7 +1,7 @@
 #pragma once
 #include <../../../ThirdParty/nlohmann/json.hpp>
 #include "WeaponHandler.h"
-#include "VR/IVR.h";
+#include "VR/IVR.h"
 
 #define HAPTICS_DEBUG 1
 #define HAPTICS_EMULATED_DEBUG 0

@@ -56,6 +56,8 @@ void OpenVR::Init()
 		return;
 	}
 
+	keyboardBuffer = new char[256];
+
 	vrOverlay->CreateOverlay("UIOverlay", "UIOverlay", &uiOverlay);
 	vrOverlay->SetOverlayFlag(uiOverlay, vr::VROverlayFlags_MakeOverlaysInteractiveIfVisible, true);
 	vrOverlay->SetOverlayFlag(uiOverlay, vr::VROverlayFlags_IsPremultiplied, true);
@@ -149,24 +151,29 @@ void OpenVR::Init()
 
 	float l_left = 0.0f, l_right = 0.0f, l_top = 0.0f, l_bottom = 0.0f;
 	vrSystem->GetProjectionRaw(vr::EVREye::Eye_Left, &l_left, &l_right, &l_top, &l_bottom);
+	Logger::log << "[OpenVR] Left eye raw projection[l, r, t, b] = [" << l_left << ", " << l_right << ", " << l_top << ", " << l_bottom << "]" << std::endl;
 
 	float r_left = 0.0f, r_right = 0.0f, r_top = 0.0f, r_bottom = 0.0f;
 	vrSystem->GetProjectionRaw(vr::EVREye::Eye_Right, &r_left, &r_right, &r_top, &r_bottom);
+	Logger::log << "[OpenVR] Right eye raw projection[l, r, t, b] = [" << r_left << ", " << r_right << ", " << r_top << ", " << r_bottom << "]" << std::endl;
 
 	float tanHalfFov[2];
 
 	tanHalfFov[0] = (std::max)({ -l_left, l_right, -r_left, r_right });
 	tanHalfFov[1] = (std::max)({ -l_top, l_bottom, -r_top, r_bottom });
+	Logger::log << "[OpenVR] tanHalfFov[horiz, vert] = [" << tanHalfFov[0] << ", " << tanHalfFov[1] << "]" << std::endl;
 
 	textureBounds[0].uMin = 0.5f + 0.5f * l_left / tanHalfFov[0];
 	textureBounds[0].uMax = 0.5f + 0.5f * l_right / tanHalfFov[0];
 	textureBounds[0].vMin = 0.5f - 0.5f * l_bottom / tanHalfFov[1];
 	textureBounds[0].vMax = 0.5f - 0.5f * l_top / tanHalfFov[1];
+	Logger::log << "[OpenVR] Left eye textureBounds[uMin, uMax, vMin, vMax] = [" << textureBounds[0].uMin << ", " << textureBounds[0].uMax << ", " << textureBounds[0].vMin << ", " << textureBounds[0].vMax << "]" << std::endl;
 
 	textureBounds[1].uMin = 0.5f + 0.5f * r_left / tanHalfFov[0];
 	textureBounds[1].uMax = 0.5f + 0.5f * r_right / tanHalfFov[0];
 	textureBounds[1].vMin = 0.5f - 0.5f * r_bottom / tanHalfFov[1];
 	textureBounds[1].vMax = 0.5f - 0.5f * r_top / tanHalfFov[1];
+	Logger::log << "[OpenVR] Right eye textureBounds[uMin, uMax, vMin, vMax] = [" << textureBounds[1].uMin << ", " << textureBounds[1].uMax << ", " << textureBounds[1].vMin << ", " << textureBounds[1].vMax << "]" << std::endl;
 
 	aspect = tanHalfFov[0] / tanHalfFov[1];
 	fov = 2.0f * atan(tanHalfFov[1]);
@@ -203,8 +210,9 @@ void OpenVR::OnGameFinishInit()
 	CreateTexAndSurface(0, recommendedWidth, recommendedHeight, desc.Usage, desc.Format);
 	CreateTexAndSurface(1, recommendedWidth, recommendedHeight, desc.Usage, desc.Format);
 	// UI Layers
-	CreateTexAndSurface(uiSurface, Game::instance.c_UIOverlayWidth->Value(), Game::instance.c_UIOverlayHeight->Value(), desc2.Usage, desc2.Format);
-	CreateTexAndSurface(crosshairSurface, Game::instance.c_UIOverlayWidth->Value(), Game::instance.c_UIOverlayHeight->Value(), desc2.Usage, desc2.Format);
+	CreateTexAndSurface(uiSurface, Game::instance.overlayWidth, Game::instance.overlayHeight, desc2.Usage, desc2.Format);
+	CreateTexAndSurface(crosshairSurface, Game::instance.overlayWidth, Game::instance.overlayHeight, desc2.Usage, desc2.Format);
+	
 	scopeWidth = static_cast<uint32_t>(Game::instance.c_ScopeRenderScale->Value() * recommendedWidth);
 	scopeHeight = static_cast<uint32_t>(Game::instance.c_ScopeRenderScale->Value() * recommendedWidth * 0.75f); // Maintain the 4x3 aspect ratio halo works best with
 	CreateTexAndSurface(scopeSurface, scopeWidth, scopeHeight, desc2.Usage, desc2.Format);
@@ -330,6 +338,10 @@ void OpenVR::UpdatePoses()
 		case vr::VREvent_MouseButtonUp:
 			bMouseDown = false;
 			break;
+		case vr::VREvent_KeyboardClosed_Global:
+		case vr::VREvent_KeyboardDone:
+			Game::instance.uiRenderer->UpdateActiveButton(nullptr);
+			break;
 		default:
 			break;
 		}
@@ -434,7 +446,7 @@ void OpenVR::PositionOverlay()
 	float yaw = atan2(-mat.m[2][0], mat.m[2][2]);
 	vr::HmdMatrix34_t transform = {
 		cos(yaw), 0, sin(yaw), position.v[0],
-		0, 1, 0, position.v[1],
+		0, 0.75f, 0, position.v[1],
 		-sin(yaw), 0, cos(yaw), position.v[2]
 	};
 
@@ -859,11 +871,23 @@ void OpenVR::SetCrosshairTransform(Matrix4& newTransform)
 	Game::instance.inGameRenderer.DrawRenderTarget(gameRenderTexture[crosshairSurface], pos, rot, size, false);
 }
 
+void OpenVR::SetActiveActionSet(int index, const std::string& actionSetName)
+{	
+    vr::EVRInputError error = vrInput->GetActionSetHandle(actionSetName.c_str(), &actionSets[index].ulActionSet);
+    if (error != vr::VRInputError_None)
+    {
+        Logger::err << "[OpenVR] Could not set active action set: " << actionSetName << " Error: " << error << std::endl;
+    }
+}
+
 void OpenVR::UpdateInputs()
-{
+{	
+	SetActiveActionSet(0, "/actions/default");
+	SetActiveActionSet(1, "/actions/left handed");
+
 	VR_PROFILE_SCOPE(OpenVR_UpdateInputs);
 
-	vr::EVRInputError error = vrInput->UpdateActionState(actionSets, sizeof(vr::VRActiveActionSet_t), 1);
+	vr::EVRInputError error = vrInput->UpdateActionState(actionSets, sizeof(vr::VRActiveActionSet_t), 2);
 
 	if (error != vr::VRInputError_None)
 	{
@@ -918,6 +942,11 @@ bool OpenVR::GetBoolInput(InputBindingID id, bool& bHasChanged)
 
 	bHasChanged = digital.bChanged;
 
+	if (digital.bChanged && digital.bState)
+	{
+		Logger::log << "[OpenVR] Getting binding " << id << std::endl;
+	}
+
 	return digital.bState;
 }
 
@@ -941,4 +970,63 @@ Vector2 OpenVR::GetMousePos()
 bool OpenVR::GetMouseDown()
 {
 	return bMouseDown;
+}
+
+void OpenVR::ShowKeyboard(const std::string& textBuffer)
+{
+	if (!vrOverlay)
+	{
+		return;
+	}
+
+	strncpy(keyboardBuffer, textBuffer.c_str(), 256);
+
+	vrOverlay->ShowKeyboardForOverlay(uiOverlay, vr::k_EGamepadTextInputModeSubmit, vr::k_EGamepadTextInputLineModeSingleLine, vr::KeyboardFlag_Modal, "VR Settings", 256, textBuffer.c_str(), 0);
+	bKeyboardVisible = true;
+}
+
+bool OpenVR::IsKeyboardVisible()
+{
+	return bKeyboardVisible;
+}
+
+void OpenVR::HideKeyboard()
+{
+	if (!vrOverlay)
+	{
+		return;
+	}
+
+	vrOverlay->HideKeyboard();
+	bKeyboardVisible = false;
+}
+
+std::string OpenVR::GetKeyboardInput()
+{
+	if (!vrOverlay)
+	{
+		return std::string();
+	}
+
+	vrOverlay->GetKeyboardText(keyboardBuffer, 256);
+	return keyboardBuffer;
+}
+
+std::string OpenVR::GetDeviceName()
+{
+	if (!vrSystem)
+	{
+		return "Unknown";
+	}
+
+	char str[128] = {};
+
+	uint32_t size = vrSystem->GetStringTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_ModelNumber_String, str, 128);
+
+	if (size == 0)
+	{
+		return "Unknown";
+	}
+
+	return str;
 }

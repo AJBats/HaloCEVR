@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="460" height="215" src="./Bindings/icon.png">
+  <img width="460" height="215" src="./Extras/Bindings/icon.png">
 </p>
 
 # Halo: Combat Evolved VR
@@ -21,6 +21,7 @@ A full VR conversion mod for the original 2003 PC edition of _Halo: Combat Evolv
 * Motion controlled flashlight (tap head)
 * Motion controlled crouching
 * Shoulder weapon holsters (for switching weapons)
+* Swapping weapons between hands
 * Detached floating UI layer
 * Floating crosshair
 * Joystick steered vehicles
@@ -46,7 +47,7 @@ A full VR conversion mod for the original 2003 PC edition of _Halo: Combat Evolv
 4. Download the latest version of this mod from the [releases page](../../releases)
 5. Extract HaloCEVR.zip and place the files in the same directory as the halo executable (You should see a VR folder, openvr_api.dll and d3d9.dll if done correctly - if you do not see these files your antivirus may be interfering)
 6. Launch the game once to generate a config.txt file in the VR directory
-7. If setting LeftHanded=true in the config, consider selecting the left handed controller bindings in the game's SteamVR controller bindings page
+7. If setting LeftHanded=true in the config, consider selecting the left handed controller bindings in the game's SteamVR controller bindings page if you want the sticks to also be swapped
 
 ## Uninstalling
 1. Go play the MCC version instead
@@ -140,13 +141,13 @@ This mod was designed for singleplayer, it is untested in multiplayer and as suc
 
 Also it does not work in Co-op because this version of the game does not have that mode.
 ### Does this work with Custom Edition?
-Not currently.
+Yes, although there is no guarantee that mods/custom content designed for custom edition will be compatible with vr.
 ### Does this work with MCC Edition?
 No.
 ### Does this work with SPV3?
-No, SPV3 depends on Halo Custom Edition which is presently incompatible.
+More or less.
 ### Does this work with other mods?
-Maybe, if they only need the PC edition and do not change the underlying structure of the game in a way that interferes with the VR mod. The focus of this mod is making sure the base game works in VR.
+Maybe, if they do not change the underlying structure of the game in a way that interferes with the VR mod. The focus of this mod is making sure the base game works in VR.
 ### Help! The game launches in VR but I cannot interact with the main menu! My buttons do not work!
 Make sure the game window on your desktop is in focus (switch back to desktop view and click on the window).  If that does not work make sure you're actually using a SteamVR runtime.
 ### Help! I've tried EVERYTHING to the letter and something is still wrong.
@@ -156,13 +157,16 @@ Either play through this initial part of the game in flat screen, or walk over t
 ### Which config.txt file do I use to make changes to VR settings?  What if I am making changes but don't see changes in game?
 The one found in the "VR" folder after install and after you run the game once in VR. If you are not seeing changes you make take effect in game, then chances are you disregarded the instruction not to install in Program Files.  You can try running in administrator mode to make the edits but safer to just install Halo and the mod in a new location.
 ### How do I turn on the flashlight?
-By default tapping your head with your left hand will toggle the flashlight, you can adjust the radius this triggers at and which hand to use in config.txt. Alternatively there is an optional binding you can configure in SteamVR's controller bindings page to toggle it directly.
+By default tapping your head with an empty hand will toggle the flashlight, you can adjust the radius this triggers at and which hand to use in config.txt. Alternatively there is an optional binding you can configure in SteamVR's controller bindings page to toggle it directly.
 ### How do I melee/can melee be bound to a button on my controller?
 By default swinging either controller vertically with enough speed will trigger a melee attack wherever you are looking. If preferred there is a controller binding that is unset by default you can configure instead.
 
 ### How do I switch weapons?
 By default, you can switch weapons using the shoulder weapon holsters. To do this, hover your dominant hand over a shoulder and press the Switch Weapon controller binding (can be configured in SteamVR's bindings).
 If you prefer, you can adjust the settings for the weapon holsters or disable them in config.txt to switch weapons using only the controller binding.
+
+### How can I swap my weapon between my hands?
+You can swap your weapon into the opposite hand by bringing your hands close together and using the `SwapWeaponHand` binding (This can be configured in SteamVR's bindings). By default, this is bound to the grip button on your non-dominant hand and changes hands depending on whether the weapon is currently in your left or right hand. Whilst holding a weapon in your left hand the `left handed` SteamVR Action Set Bindings will be used. The distance required between hands can be configured in the `config.txt` file or the feature can be disabled.
 
 ### How do I activate smooth turning?
 Go to the VR config.txt file and change SnapTurn = false.  You can also adjust turning speed with SmoothTurnAmount.
@@ -191,15 +195,14 @@ Use SteamVR input settings to change your bindings to whatever you want. You can
 Thank you! See compiling source directions below and submit a Pull Request on Github explaining the changes you have made and impact on other files.  Be sure to thoroughly test any changes before submitting them. After others and I test the changes, they may be incorporated into the mod release.
 
 ## Compiling Source
-1. Make sure you're running VS 2022 and open the solution.
-2. Ensure that C++ Language Standard is ISO C++ 17 Standard (/std:c++17). This can be found under HaloCEVR Properties -> Configuration Properties -> General.
-3. Set solution build configuration to release and target x86.
+1. Clone this repository (`git clone --recurse-submodules https://github.com/LivingFray/HaloCEVR.git`)
+2. Run initinstall.bat and enter the Directory and executable name for your halo install (this must be done while visual studio is closed)
+3. Open HaloCEVR.sln in Visual Studio 2022
+4. Set the project configuration to "Debug", "Release" or "Emulated-VR" on "x86" (Emulated will create a desktop window showing the VR perspective rather than launching OpenVR, which is very helpful for quick debugging)
+5. Click "Local Windows Debugger". If done correctly halo should automatically launch with the mod installed and visual studio's debugger attached.
+6. If this is the first time running the mod you may need to run makerelease.bat after building to generate HaloCEVR.zip. Unzip the contents of this file into halo's directory to install the additional required assets
 
-This should be everything that needs to be done inside of the HaloCEVR project, however it is likely you will need to compile MinHook.
-1. Go to https://github.com/TsudaKageyu/minhook and clone the project.
-2. Open the file and navigate to build/VC17, open this solution.
-3. Set solution build configuration to release and target x86.
-4. Build the libMinHook project, the result of which should be a libMinHook.x86.lib file.
-5. Replace the file libMinHook.x86.lib in the HaloCEVR folder found at HaloCEVR-master\ThirdParty\MinHook\lib with this newly compiled libMinHook.x86.lib file
+## Final Notes
+It is my wish this mod be kept on pc only. This mod was made in part to help boost PCVR by increasing the number of pc exclusives and make PC a more appealing choice. Cheap standalone devices have taken vr down a path of games cut down to run glorified mobile phones and not the breathtaking immersive worlds half life Alyx promised. I want no part in continuing that with this mod.
 
-You should now be able to build successfully, this will generate a d3d9.dll file, using the "makerelease" bat file we can create a zip containing the d3d9.dll and the VR folder. You will need to add openvr_api.dll yourself, either by adding to the release folder so the bat file can pickup copy and zip it, or by adding it directly into your halo CE installation directory.
+Additionally this mod would not have been possible without other, free, open source mods to inspire me and to learn from. If you want to make your own mod I implore you to release it freely for the community's sake.

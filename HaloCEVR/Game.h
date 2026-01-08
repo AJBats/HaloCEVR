@@ -14,6 +14,8 @@
 #include "InGameRenderer.h"
 #include "WeaponHapticsConfig.h"
 #include "Profiler.h"
+#include "UI/UIRenderer.h"
+#include "UI/SettingsMenu.h"
 
 enum class ERenderState { UNKNOWN, LEFT_EYE, RIGHT_EYE, GAME, SCOPE};
 
@@ -62,6 +64,7 @@ public:
 
 	void UpdateInputs();
 	void CalculateSmoothedInput();
+	void UpdateRoomScaleMovement();
 
 	void UpdateCamera(float& yaw, float& pitch);
 	void SetMousePosition(int& x, int& y);
@@ -73,7 +76,7 @@ public:
 
 	ERenderState GetRenderState() const { return renderState; }
 
-	float GetScopeSize() const { return c_ScopeScale->Value(); }
+	float GetScopeSize() const { return bUse3DOFAiming ? c_3DOFScopeScale->Value() : c_ScopeScale->Value(); }
 
 	float MetresToWorld(float m) const;
 	float WorldToMetres(float w) const;
@@ -89,15 +92,29 @@ public:
 
 	bool bNeedsRecentre = true;
 	bool bUseTwoHandAim = false;
-	bool bIsMouse1Down = false;
+	bool bLeftHanded = false;
+	bool bUse3DOFAiming = false;
+
+	Config config;
+	bool bIsFiring = false;
 	bool bIsReloading = false;
 
 	InGameRenderer inGameRenderer;
 	InGameRenderer scopeRenderer;
+	UIRenderer* uiRenderer;
+	SettingsMenu* settingsMenu;
 
 	bool bDetectedChimera = false;
 	Vector3 LastLookDir;
 	WeaponHapticsConfigManager weaponHapticsConfig;
+
+	bool bLoadedConfig = false;
+	bool bSavedConfig = false;
+
+	bool bIsCustom = false;
+
+	UINT overlayWidth = 640;
+	UINT overlayHeight = 640;
 
 #if USE_PROFILER
 	Profiler profiler;
@@ -136,7 +153,6 @@ protected:
 
 	FILE* consoleOut = nullptr;
 
-	Config config;
 	IVR* vr;
 
 	RenderTarget gameRenderTargets[8];
@@ -175,6 +191,8 @@ protected:
 
 	bool bWasLoading = false;
 
+	bool bIgnoreNextRoomScaleMovement = false;
+
 	//======Configs======//
 public:
 
@@ -188,16 +206,17 @@ public:
 	FloatProperty* c_UIOverlayScale = nullptr;
 	FloatProperty* c_MenuOverlayScale = nullptr;
 	FloatProperty* c_UIOverlayCurvature = nullptr;
-	IntProperty* c_UIOverlayWidth = nullptr;
-	IntProperty* c_UIOverlayHeight = nullptr;
+	FloatProperty* c_UIOverlayRenderScale = nullptr;
 	BoolProperty* c_ShowCrosshair = nullptr;
 	BoolProperty* c_SnapTurn = nullptr;
 	FloatProperty* c_SnapTurnAmount = nullptr;
 	FloatProperty* c_SmoothTurnAmount = nullptr;
+	BoolProperty* c_RoomScaleMovement = nullptr;
 	IntProperty* c_HandRelativeMovement = nullptr;
 	FloatProperty* c_HandRelativeOffsetRotation = nullptr;
 	FloatProperty* c_HorizontalVehicleTurnAmount = nullptr;
 	FloatProperty* c_VerticalVehicleTurnAmount = nullptr;
+	BoolProperty* c_OffhandHandFlashlight = nullptr;
 	FloatProperty* c_LeftHandFlashlightDistance = nullptr;
 	FloatProperty* c_RightHandFlashlightDistance = nullptr;
 	BoolProperty* c_EnableWeaponHolsters = nullptr;
@@ -209,6 +228,7 @@ public:
 	Vector3Property* c_ControllerRotation = nullptr;
 	FloatProperty* c_ScopeRenderScale = nullptr;
 	FloatProperty* c_ScopeScale = nullptr;
+	BoolProperty* c_LockScopeRoll = nullptr;
 	Vector3Property* c_ScopeOffsetPistol = nullptr;
 	Vector3Property* c_ScopeOffsetSniper = nullptr;
 	Vector3Property* c_ScopeOffsetRocket = nullptr;
@@ -219,6 +239,7 @@ public:
 	BoolProperty* c_ToggleGrip = nullptr;
 	FloatProperty* c_TwoHandDistance = nullptr;
 	BoolProperty* c_LeftHanded = nullptr;
+	FloatProperty* c_SwapHandDistance = nullptr;
 	StringProperty* c_d3d9Path = nullptr;
 	FloatProperty* c_WeaponSmoothingAmountNoZoom = nullptr;
 	FloatProperty* c_WeaponSmoothingAmountOneZoom = nullptr;
@@ -227,5 +248,9 @@ public:
 	FloatProperty* c_TEMPViewportRight = nullptr;
 	FloatProperty* c_TEMPViewportTop = nullptr;
 	FloatProperty* c_TEMPViewportBottom = nullptr;
+	BoolProperty* c_Use3DOFAiming = nullptr;
+	Vector3Property* c_3DOFWeaponOffset = nullptr;
+	FloatProperty* c_3DOFWeaponSmoothingAmount = nullptr;
+	FloatProperty* c_3DOFScopeScale = nullptr;
 };
 

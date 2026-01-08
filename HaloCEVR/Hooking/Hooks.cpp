@@ -2,6 +2,7 @@
 #include "../Helpers/Player.h"
 #include "../Helpers/Renderer.h"
 #include "../Helpers/DX9.h"
+#include "../Helpers/Cutscene.h"
 #include "../Game.h"
 #include "../Helpers/Menus.h"
 #include "../Helpers/Maths.h"
@@ -19,6 +20,8 @@ void Hooks::InitHooks()
 {
 	VR_PROFILE_SCOPE(Hooks_InitHooks);
 
+	RESOLVEINDIRECT(GameVersion);
+	RESOLVEINDIRECT(GameType);
 	RESOLVEINDIRECT(AssetsArray);
 	RESOLVEINDIRECT(Controls);
 	RESOLVEINDIRECT(DirectX9);
@@ -822,8 +825,8 @@ void Hooks::H_DrawLoadingScreen2(void* param1)
 	{
 		0,
 		0,
-		static_cast<DWORD>(Game::instance.c_UIOverlayWidth->Value()),
-		static_cast<DWORD>(Game::instance.c_UIOverlayHeight->Value()),
+		static_cast<DWORD>(Game::instance.overlayWidth),
+		static_cast<DWORD>(Game::instance.overlayHeight),
 		0.0f,
 		1.0f
 	};
@@ -843,8 +846,8 @@ void Hooks::H_DrawCinematicBars()
 	{
 		0,
 		0,
-		static_cast<DWORD>(Game::instance.c_UIOverlayWidth->Value()),
-		static_cast<DWORD>(Game::instance.c_UIOverlayHeight->Value()),
+		static_cast<DWORD>(Game::instance.overlayWidth),
+		static_cast<DWORD>(Game::instance.overlayHeight),
 		0.0f,
 		1.0f
 	};
@@ -861,7 +864,21 @@ void Hooks::H_DrawViewModel()
 {
 	VR_PROFILE_SCOPE(Hooks_DrawViewModel);
 
-	if (Game::instance.c_LeftHanded->Value())
+	// Skip weapon rendering during cutscenes
+	CutsceneData* cutscene = Helpers::GetCutsceneData();
+	if (cutscene && cutscene->bInCutscene)
+	{
+		return;
+	}
+
+	// Skip weapon rendering during scope render in 3DOF mode
+	// This fixes an issue where the weapon model was showing up in the scope
+	if (Game::instance.GetRenderState() == ERenderState::SCOPE && Game::instance.bUse3DOFAiming)
+	{
+		return;
+	}
+
+	if (Game::instance.bLeftHanded)
 	{
 		Helpers::GetDirect3DDevice9()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
@@ -1012,12 +1029,7 @@ void Hooks::SetCameraMatrices(struct Viewport* viewport, struct CameraFrustum* f
 		mov eax, viewport
 		mov ecx, frustum
 		mov esi, crm
-	}
-	
-	oSetCameraMatrices();
-
-	_asm
-	{
+		call oSetCameraMatrices
 		pop esi
 		pop ecx
 		pop eax

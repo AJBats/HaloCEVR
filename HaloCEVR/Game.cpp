@@ -1,4 +1,3 @@
-#define EMULATE_VR 1
 #include "Game.h"
 #include "Logger.h"
 #include "Hooking/Hooks.h"
@@ -10,7 +9,7 @@
 #include "Helpers/Objects.h"
 #include "Helpers/Maths.h"
 
-#if EMULATE_VR
+#ifdef EMULATE_VR
 #include "VR/VREmulator.h"
 #else
 #include "VR/OpenVR.h"
@@ -20,6 +19,9 @@
 #include <algorithm>
 #endif
 
+#include "UI/UIRenderer.h"
+#include "Helpers/Version.h"
+#include "Helpers/Cutscene.h"
 
 void Game::Init()
 {
@@ -35,7 +37,12 @@ void Game::Init()
 
 	PatchGame();
 
-#if EMULATE_VR
+	Logger::log << "[Game] Found Game Type: " << Helpers::GetGameTypeString() << std::endl;
+	Logger::log << "[Game] Found Game Version: " << Helpers::GetVersionString() << std::endl;
+
+	bIsCustom = std::strcmp("halor", Helpers::GetGameTypeString()) != 0;
+
+#ifdef EMULATE_VR
 	vr = new VREmulator();
 #else
 	vr = new OpenVR();
@@ -43,6 +50,8 @@ void Game::Init()
 
 	vr->Init();
 
+	Game::instance.bLeftHanded = Game::instance.c_LeftHanded->Value();
+	Game::instance.bUse3DOFAiming = Game::instance.c_Use3DOFAiming->Value();
 	inputHandler.RegisterInputs();
 
 	backBufferWidth = vr->GetViewWidth();
@@ -105,6 +114,13 @@ void Game::OnInitDirectX()
 
 	SetForegroundWindow(GetActiveWindow());
 
+	// Ideally these values would be in a 4:3 ratio, but this causes the mouse position to stop aligning correctly
+	overlayWidth = static_cast<UINT>(std::max(vr->GetViewHeight(), vr->GetViewWidth()) * c_UIOverlayRenderScale->Value());
+	if (overlayWidth < 640) { // Clamp low to 640px so user can't degrade/break the config UI 
+		overlayWidth = 640; 
+	}
+	overlayHeight = overlayWidth;
+
 	vr->OnGameFinishInit();
 
 	uiSurface = vr->GetUISurface();
@@ -118,6 +134,14 @@ void Game::OnInitDirectX()
 
 	CreateTextureAndSurface(desc.Width, desc.Height, desc.Usage, desc.Format, &scopeSurfaces[1], &scopeTextures[1]);
 	CreateTextureAndSurface(desc.Width / 2, desc.Height / 2, desc.Usage, desc.Format, &scopeSurfaces[2], &scopeTextures[2]);
+
+	uiRenderer = new UIRenderer();
+
+	uiRenderer->Init(Helpers::GetDirect3DDevice9());
+
+	settingsMenu = new SettingsMenu();
+
+	settingsMenu->CreateMenus();
 }
 
 void Game::PreDrawFrame(struct Renderer* renderer, float deltaTime)
@@ -295,11 +319,14 @@ bool Game::PreDrawScope(Renderer* renderer, float deltaTime)
 
 	Vector3 aimPos, aimDir, upDir;
 
-	weaponHandler.GetWorldWeaponAim(aimPos, aimDir);
+	weaponHandler.GetWorldWeaponAim(aimPos, aimDir, upDir);
 
-	upDir = Vector3(0.0f, 0.0f, 1.0f);
-	upDir = aimDir.cross(upDir);
-	upDir = upDir.cross(aimDir);
+	if (!Game::instance.c_LockScopeRoll->Value())
+	{
+		upDir = Vector3(0.0f, 0.0f, 1.0f);
+		upDir = aimDir.cross(upDir);
+		upDir = upDir.cross(aimDir);
+	}
 
 	renderer->frustum.position = aimPos;
 	renderer->frustum2.position = aimPos;
@@ -371,7 +398,11 @@ void Game::PostDrawScope(Renderer* renderer, float deltaTime)
 		innerSize = Vector2(scopeWidth, scopeHeight);
 	}
 
-	scopeRenderer.DrawInvertedShape2D(centre, innerSize, size, sides, radius, color);
+	// For 3DOF we want to show more of the original scope graphics
+	if (!bUse3DOFAiming)
+	{
+		scopeRenderer.DrawInvertedShape2D(centre, innerSize, size, sides, radius, color);
+	}
 
 	scopeRenderer.Render(Helpers::GetDirect3DDevice9());
 	scopeRenderer.PostRender();
@@ -514,16 +545,16 @@ bool Game::PreDrawHUD()
 	Helpers::GetRenderTargets()[1].renderSurface = uiSurface;
 	realUIWidth = Helpers::GetRenderTargets()[1].width;
 	realUIHeight = Helpers::GetRenderTargets()[1].height;
-	Helpers::GetRenderTargets()[1].width = c_UIOverlayWidth->Value();
-	Helpers::GetRenderTargets()[1].height = c_UIOverlayHeight->Value();
+	Helpers::GetRenderTargets()[1].width = overlayWidth;
+	Helpers::GetRenderTargets()[1].height = overlayHeight;
 
 	sRect* windowMain = Helpers::GetCurrentRect();
 	realRect = *windowMain;
 
 	windowMain->top = 0;
 	windowMain->left = 0;
-	windowMain->right = c_UIOverlayWidth->Value();
-	windowMain->bottom = c_UIOverlayHeight->Value();
+	windowMain->right = overlayWidth;
+	windowMain->bottom = overlayHeight;
 
 	return true;
 }
@@ -586,6 +617,11 @@ void Game::PostDrawMenu()
 	if (GetRenderState() != ERenderState::LEFT_EYE)
 	{
 		return;
+	}
+
+	if (Helpers::IsMouseVisible())
+	{
+		uiRenderer->Render();
 	}
 
 	Helpers::GetRenderTargets()[1].renderSurface = uiRealSurface;
@@ -699,7 +735,7 @@ void Game::UpdateViewModel(HaloID& id, Vector3* pos, Vector3* facing, Vector3* u
 	VR_PROFILE_SCOPE(Game_UpdateViewModel);
 	weaponHandler.UpdateViewModel(id, pos, facing, up, BoneTransforms, OutBoneTransforms);
 
-	if (Game::instance.bIsMouse1Down)
+	if (Game::instance.bIsFiring)
 	{
 		weaponHandler.SetPlasmaPistolCharge();
 	}
@@ -734,7 +770,13 @@ void Game::PostThrowGrenade(HaloID& playerID)
 void Game::UpdateInputs()
 {
 	VR_PROFILE_SCOPE(Game_UpdateInputs);
+
+	// Hot reload this flag
+	bUse3DOFAiming = c_Use3DOFAiming->Value();
+
 	inputHandler.UpdateInputs(bInVehicle);
+
+	UpdateRoomScaleMovement();
 
 #if USE_PROFILER
 	static bool bWasPressed = false;
@@ -754,6 +796,61 @@ void Game::CalculateSmoothedInput()
 {
 	VR_PROFILE_SCOPE(Game_CalculateSmoothedInput);
 	inputHandler.CalculateSmoothedInput();
+}
+
+void Game::UpdateRoomScaleMovement()
+{
+	VR_PROFILE_SCOPE(Game_UpdateRoomScaleMovement);
+
+	if (!c_RoomScaleMovement->Value())
+	{
+		return;
+	}
+
+	UnitDynamicObject* Player = static_cast<UnitDynamicObject*>(Helpers::GetLocalPlayer());
+
+	const bool bNoPlayer = Player == nullptr;
+	const bool bInCutscene = Helpers::GetCutsceneData()->bInCutscene;
+
+	// Restrict roomscale movement to normal movement (there's probably an elegant way to determine if the player can move, but I haven't RE'd it)
+	if (bNoPlayer || bInCutscene || bInVehicle)
+	{
+		bIgnoreNextRoomScaleMovement = true;
+		return;
+	}
+
+	// Calculate real-world offset from last frame
+	Vector3 headPos = vr->GetHMDTransform(true) * Vector3(0.0f, 0.0f, 0.0f);
+
+	// Convert to game units
+	Vector3 desiredOffset = headPos * MetresToWorld(1.0f);
+	desiredOffset.z = 0.0f;
+
+	const float Rotation = vr->GetYawOffset() * (3.141593f / 180.0f);
+
+#if 0
+	inGameRenderer.DrawPolygon(Player->position + desiredOffset, Vector3(0.0f, 0.0f, 1.0f), Vector3(1.0f, 0.0f, 0.0f), 4, MetresToWorld(0.25f), D3DCOLOR_ARGB(50, 85, 250, 239), false);
+#endif
+
+	// Directly adjust position, collisions are handled later in the tick
+	if (!bIgnoreNextRoomScaleMovement)
+	{
+		Player->position += desiredOffset;
+	}
+	bIgnoreNextRoomScaleMovement = false;
+
+	{
+		// Rotate desiredOffset by yaw offset
+		const float cosAngle = std::cos(Rotation);
+		const float sinAngle = std::sin(Rotation);
+		const float newX = desiredOffset.x * cosAngle - desiredOffset.y * sinAngle;
+		const float newY = desiredOffset.x * sinAngle + desiredOffset.y * cosAngle;
+		desiredOffset.x = newX;
+		desiredOffset.y = newY;
+	}
+
+	// Move the camera offset backwards to recentre the player
+	vr->SetLocationOffset(desiredOffset * WorldToMetres(1.0f) + vr->GetLocationOffset());
 }
 
 bool Game::GetCalculatedHandPositions(Matrix4& controllerTransform, Vector3& dominantHandPos, Vector3& offHand)
@@ -794,7 +891,7 @@ void Game::UpdateCamera(float& yaw, float& pitch)
 {
 	VR_PROFILE_SCOPE(Game_UpdateCamera);
 	// Don't bother simulating inputs if we aren't actually in vr
-#if EMULATE_VR
+#ifdef EMULATE_VR
 	return;
 #endif
 
@@ -812,20 +909,52 @@ void Game::SetMousePosition(int& x, int& y)
 {
 	VR_PROFILE_SCOPE(Game_SetMousePosition);
 	// Don't bother simulating inputs if we aren't actually in vr
-#if EMULATE_VR
-	return;
-#endif
+#ifndef EMULATE_VR
 	inputHandler.SetMousePosition(x, y);
+#endif
+	if (Helpers::IsMouseVisible())
+	{
+		uiRenderer->MoveCursor(static_cast<float>(x), static_cast<float>(y));
+#ifndef EMULATE_VR
+		// Stop menu hover events happening while ui is up
+		if (settingsMenu->bVisible)
+		{
+			x = 0;
+			y = 0;
+		}
+#endif
+	}
 }
 
 void Game::UpdateMouseInfo(MouseInfo* mouseInfo)
 {
 	VR_PROFILE_SCOPE(Game_UpdateMouseInfo);
+
+	static char realLeftClickValue = 0;
+
 	// Don't bother simulating inputs if we aren't actually in vr
-#if EMULATE_VR
-	return;
-#endif
+#ifndef EMULATE_VR
 	inputHandler.UpdateMouseInfo(mouseInfo);
+#endif
+	if (Helpers::IsMouseVisible() && mouseInfo->buttonState[0] == 1)
+	{
+		uiRenderer->Click();
+
+#ifndef EMULATE_VR
+		// Don't allow any mouse inputs to pass through to the real UI while ours is up
+		if (settingsMenu->bVisible)
+		{
+			mouseInfo->buttonState[0] = 0;
+		}
+#endif
+	}
+
+	// Hack fix for closing settings menu if the player exits a menu with it open
+	if (!Helpers::IsMouseVisible() && settingsMenu->bVisible)
+	{
+		uiRenderer->MoveCursor(0.0f, 0.0f);
+		uiRenderer->Click();
+	}
 }
 
 void Game::SetViewportScale(Viewport* viewport)
@@ -888,8 +1017,6 @@ void Game::SetupConfigs()
 {
 	VR_PROFILE_SCOPE(Game_SetupConfigs);
 
-	Config config;
-
 	// Window settings
 	c_ShowConsole = config.RegisterBool("ShowConsole", "Create a console window at launch for debugging purposes", false);
 	c_DrawMirror = config.RegisterBool("DrawMirror", "Update the desktop window display to show the current game view, rather than leaving it on the splash screen", true);
@@ -902,22 +1029,24 @@ void Game::SetupConfigs()
 	c_MenuOverlayScale = config.RegisterFloat("MenuOverlayScale", "Width of the menu overlay in metres", 10.0f);
 	c_CrosshairScale = config.RegisterFloat("CrosshairScale", "Width of the crosshair overlay in metres", 10.0f);
 	c_UIOverlayCurvature = config.RegisterFloat("UIOverlayCurvature", "Curvature of the UI Overlay, on a scale of 0 to 1", 0.1f);
-	c_UIOverlayWidth = config.RegisterInt("UIOverlayWidth", "Width of the UI overlay in pixels", 600);
-	c_UIOverlayHeight = config.RegisterInt("UIOverlayHeight", "Height of the UI overlay in pixels", 600);
+	c_UIOverlayRenderScale = config.RegisterFloat("UIOverlayRenderScale", "Resolution of the UI overlay, expressed as a proportion of the headset's render scale (e.g. 0.5 = half resolution), low values default to 640px", 0.5f);
 	c_ShowCrosshair = config.RegisterBool("ShowCrosshair", "Display a floating crosshair in the world at the location you are aiming", true);
 	// Control settings
-	c_LeftHanded = config.RegisterBool("LeftHanded", "Make the left hand the dominant hand. Does not affect bindings, change these in the SteamVR overlay", false);
+	c_LeftHanded = config.RegisterBool("LeftHanded", "Make the left hand the dominant hand by default. This swaps the button bindings but doesn't swap the sticks. Left handed bindings with the sticks swapped can be found in the SteamVR overlay", false);
 	c_SnapTurn = config.RegisterBool("SnapTurn", "The look input will instantly rotate the view by a fixed amount, rather than smoothly rotating", true);
 	c_SnapTurnAmount = config.RegisterFloat("SnapTurnAmount", "Rotation in degrees a single snap turn will rotate the view by", 45.0f);
 	c_SmoothTurnAmount = config.RegisterFloat("SmoothTurnAmount", "Rotation in degrees per second the view will turn at when not using snap turning", 90.0f);
+	c_RoomScaleMovement = config.RegisterBool("RoomScaleMovement", "Attempt to move the character to always match the headset's position. (May cause motion sickness, as collisions can cause a desync between physical and in-game movements)", false);
 	c_HandRelativeMovement = config.RegisterInt("HandRelativeMovement", "Movement is relative to hand orientation, rather than head, 0 = off, 1 = left, 2 = right", 0);
 	c_HandRelativeOffsetRotation = config.RegisterFloat("HandRelativeOffsetRotation", "Hand direction rotational offset in degrees used for hand-relative movement", -20.0f);
 	c_HorizontalVehicleTurnAmount = config.RegisterFloat("HorizontalVehicleTurnAmount", "Rotation in degrees per second the view will turn horizontally when in vehicles (<0 to invert)", 90.0f);
 	c_VerticalVehicleTurnAmount = config.RegisterFloat("VerticalVehicleTurnAmount", "Rotation in degrees per second the view will turn vertically when in vehicles (<0 to invert)", 45.0f);
 	c_ToggleGrip = config.RegisterBool("ToggleGrip", "When true releasing two handed weapons requires pressing the grip action again", false);
 	c_TwoHandDistance = config.RegisterFloat("TwoHandDistance", "Maximum distance between both hands where the off hand grip action will enable two handed aiming (<0 for any distance)", 0.8f);
+	c_SwapHandDistance = config.RegisterFloat("SwapHandDistance", "Maximum distance between both hands where the swap weapon hand grip action will swap your weapon into the opposite hand (<0 to disable)", 0.2f);
+	c_OffhandHandFlashlight = config.RegisterBool("OffhandHandFlashlight", "Use your offhand for toggling the flashlight, your offhand hand is the hand not holding a weapon", true);
 	c_LeftHandFlashlightDistance = config.RegisterFloat("LeftHandFlashlight", "Bringing the left hand within this distance of the head will toggle the flashlight (<0 to disable)", 0.2f);
-	c_RightHandFlashlightDistance = config.RegisterFloat("RightHandFlashlight", "Bringing the right hand within this distance of the head will toggle the flashlight (<0 to disable)", -1.0f);
+	c_RightHandFlashlightDistance = config.RegisterFloat("RightHandFlashlight", "Bringing the right hand within this distance of the head will toggle the flashlight (<0 to disable)", 0.2f);
 	c_LeftHandMeleeSwingSpeed = config.RegisterFloat("LeftHandMeleeSwingSpeed", "Minimum vertical velocity of left hand required to initiate a melee attack in m/s (<0 to disable)", 2.5f);
 	c_RightHandMeleeSwingSpeed = config.RegisterFloat("RightHandMeleeSwingSpeed", "Minimum vertical velocity of right hand required to initiate a melee attack in m/s (<0 to disable)", 2.5f);
 	c_CrouchHeight = config.RegisterFloat("CrouchHeight", "Minimum height to duck by in metres to automatically trigger the crouch input in game (<0 to disable)", 0.15f);
@@ -925,13 +1054,18 @@ void Game::SetupConfigs()
 	c_ControllerOffset = config.RegisterVector3("ControllerOffset", "Offset from the controller's position used when calculating the in game hand position", Vector3(0.0f, 0.0f, 0.0f));
 	c_ControllerRotation = config.RegisterVector3("ControllerRotation", "Rotation added to the controller when calculating the in game hand rotation", Vector3(0.0f, 0.0f, 0.0f));
 	c_ScopeRenderScale = config.RegisterFloat("ScopeRenderScale", "Size of the scope render target, expressed as a proportion of the headset's render scale (e.g. 0.5 = half resolution)", 1.0f);
-	c_ScopeScale = config.RegisterFloat("ScopeScale", "Width of the scope view in metres", 0.05f);
+	c_ScopeScale = config.RegisterFloat("ScopeScale", "Width of the scope view in metres (6DOF mode)", 0.05f);	
+	c_LockScopeRoll = config.RegisterBool("LockScopeRoll", "Set to true to keep the horizon level at all times in scopes. Leaving as false causes the scope view to rotate with the gun (pre-v1.3.0 behaviour)", true);
 	c_ScopeOffsetPistol = config.RegisterVector3("ScopeOffsetPistol", "Offset of the scope view relative to the pistol's location", Vector3(-0.1f, 0.0f, 0.15f));
 	c_ScopeOffsetSniper = config.RegisterVector3("ScopeOffsetSniper", "Offset of the scope view relative to the pistol's location", Vector3(-0.15f, 0.0f, 0.15f));
 	c_ScopeOffsetRocket = config.RegisterVector3("ScopeOffsetRocket", "Offset of the scope view relative to the pistol's location", Vector3(0.1f, 0.2f, 0.1f));
-	c_WeaponSmoothingAmountNoZoom = config.RegisterFloat("UnzoomedWeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when not zoomed in (0 is disabled, 1 is maximum, recommended around 0-0.2)", 0.0f);
-	c_WeaponSmoothingAmountOneZoom = config.RegisterFloat("Zoom1WeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when zoomed in once, eg zooming on the pistol (0 is disabled, 1 is maximum, recommended around 0.3-0.5)", 0.4f);
-	c_WeaponSmoothingAmountTwoZoom = config.RegisterFloat("Zoom2WeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when zoomed in twice, eg second zoom on sniper (0 is disabled, 1 is maximum, recommended around 0.6-1)", 0.6f);
+	c_WeaponSmoothingAmountNoZoom = config.RegisterFloat("UnzoomedWeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when not zoomed in (0 is disabled, 2.0 is maximum, recommended around 0-0.7)", 0.0f);
+	c_WeaponSmoothingAmountOneZoom = config.RegisterFloat("Zoom1WeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when zoomed in once, eg zooming on the pistol (0 is disabled, 2.0 is maximum, recommended around 0.3-1.0)", 0.4f);
+	c_WeaponSmoothingAmountTwoZoom = config.RegisterFloat("Zoom2WeaponSmoothingAmount", "Amount of smoothing applied to weapon movement when zoomed in twice, eg second zoom on sniper (0 is disabled, 2.0 is maximum, recommended around 0.6-1.25)", 0.6f);
+	c_Use3DOFAiming = config.RegisterBool("Use3DOFAiming", "Use controller rotation only for aiming (3DOF) instead of position+rotation (6DOF). When enabled, weapon models follow hand position but bullets fire based on controller rotation only", false);
+	c_3DOFWeaponOffset = config.RegisterVector3("3DOFWeaponOffset", "This is a cosmetic setting for the position offset for the 3DOF weapon model. This has no impact on gameplay. (right, forward, up in metres). Use negative Z to lower the weapon", Vector3(0.0f, 0.0f, -0.08f));
+	c_3DOFWeaponSmoothingAmount = config.RegisterFloat("3DOFWeaponSmoothingAmount", "This is a cosmetic setting that controls the amount of smoothing applied to 3DOF weapon facing direction. This has no impact on gameplay. (0 is disabled, 2.0 is maximum, default is 1.5)", 1.5f);
+	c_3DOFScopeScale = config.RegisterFloat("3DOFScopeScale", "Width of the scope view in metres (3DOF mode)", 7.f);
 	// Weapon holster settings
 	c_EnableWeaponHolsters = config.RegisterBool("EnableWeaponHolsters", "When enabled Weapons can only be switched by using the 'SwitchWeapons' binding while the dominant hand is within distance of a holster", true);
 	c_LeftShoulderHolsterActivationDistance = config.RegisterFloat("LeftShoulderHolsterDistance", "The 'size' of the left shoulder holster. This is the distance that the dominant hand needs to be from the holster to change weapons (<0 to disable)", 0.3f);
@@ -946,8 +1080,8 @@ void Game::SetupConfigs()
 	c_TEMPViewportTop = config.RegisterFloat("TEMP_ViewportTop", "Some headsets experience warping when turning, as a workaround the viewport scaling has been exposed so users can adjust them until the warping stops", -1.0f);
 	c_TEMPViewportBottom = config.RegisterFloat("TEMP_ViewportBottom", "Some headsets experience warping when turning, as a workaround the viewport scaling has been exposed so users can adjust them until the warping stops", 1.0f);
 
-	const bool bLoadedConfig = config.LoadFromFile("VR/config.txt");
-	const bool bSavedConfig = config.SaveToFile("VR/config.txt");
+	bLoadedConfig = config.LoadFromFile("VR/config.txt");
+	bSavedConfig = config.SaveToFile("VR/config.txt");
 
 	if (!bLoadedConfig)
 	{
@@ -1101,7 +1235,7 @@ void Game::UpdateCrosshairAndScope()
 		m.translate(pos);
 		};
 
-	Vector3 aimPos, aimDir;
+	Vector3 aimPos, aimDir, upDir;
 
 	if (bInVehicle && !bHasWeapon)
 	{
@@ -1110,7 +1244,7 @@ void Game::UpdateCrosshairAndScope()
 	}
 	else
 	{
-		bool bHasCrosshair = weaponHandler.GetLocalWeaponAim(aimPos, aimDir);
+		bool bHasCrosshair = weaponHandler.GetLocalWeaponAim(aimPos, aimDir, upDir);
 
 		if (!bHasCrosshair)
 		{
@@ -1137,9 +1271,21 @@ void Game::UpdateCrosshairAndScope()
 
 	short zoom = Helpers::GetInputData().zoomLevel;
 
-	Vector3 upDir = Vector3(0.0f, 0.0f, 1.0f);
+	bool bHasScope;
+	Vector3 scopePos;
 
-	bool bHasScope = (zoom != -1) && weaponHandler.GetLocalWeaponScope(aimPos, aimDir, upDir);
+	if (bUse3DOFAiming)
+	{
+		// 3DOF MODE: Position scope at crosshair location (targetPos)
+		bHasScope = (zoom != -1);
+		scopePos = targetPos;
+	}
+	else
+	{
+		// 6DOF MODE: Use weapon scope position (original behavior)
+		bHasScope = (zoom != -1) && weaponHandler.GetLocalWeaponScope(aimPos, aimDir, upDir);
+		scopePos = aimPos;
+	}
 
 	if (!bHasScope)
 	{
@@ -1147,10 +1293,10 @@ void Game::UpdateCrosshairAndScope()
 		return;
 	}
 
-	overlayTransform.translate(aimPos);
-	overlayTransform.lookAt(aimPos - aimDir, upDir);
+	overlayTransform.translate(scopePos);
+	overlayTransform.lookAt(scopePos - aimDir, upDir);
 
-	fixupRotation(overlayTransform, aimPos);
+	fixupRotation(overlayTransform, scopePos);
 
 	SetScopeTransform(overlayTransform, true);
 }
@@ -1185,7 +1331,7 @@ void Game::SetScopeTransform(Matrix4& newTransform, bool bIsVisible)
 	inGameRenderer.DrawPolygon(pos, scopeFacing, scopeUp, 32, MetresToWorld(GetScopeSize() * 0.5f), D3DCOLOR_ARGB(0, 0, 0, 0), false);
 
 	float SCOPE_DEPTH = 2.0f;
-	float SCOPE_INNER_SCALE = 80.0f;
+	float SCOPE_INNER_SCALE = bUse3DOFAiming ? 1.6f : 80.0f;
 
 	pos = pos - scopeFacing * MetresToWorld(SCOPE_DEPTH);
 	size *= SCOPE_INNER_SCALE;
