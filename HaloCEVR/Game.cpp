@@ -398,8 +398,8 @@ void Game::PostDrawScope(Renderer* renderer, float deltaTime)
 		innerSize = Vector2(scopeWidth, scopeHeight);
 	}
 
-	// For 3DOF we want to show more of the original scope graphics
-	if (!bUse3DOFAiming)
+	// For original scope mode we want to show more of the original scope graphics
+	if (!ShouldUseOriginalScope())
 	{
 		scopeRenderer.DrawInvertedShape2D(centre, innerSize, size, sides, radius, color);
 	}
@@ -1075,6 +1075,7 @@ void Game::SetupConfigs()
 	c_ScopeRenderScale = config.RegisterFloat("ScopeRenderScale", "Size of the scope render target, expressed as a proportion of the headset's render scale (e.g. 0.5 = half resolution)", 1.0f);
 	c_ScopeScale = config.RegisterFloat("ScopeScale", "Width of the scope view in metres (6DOF mode)", 0.05f);	
 	c_LockScopeRoll = config.RegisterBool("LockScopeRoll", "Set to true to keep the horizon level at all times in scopes. Leaving as false causes the scope view to rotate with the gun (pre-v1.3.0 behaviour)", true);
+	c_UseOriginalScope = config.RegisterBool("UseOriginalScope", "Use original Halo scope graphics instead of VR weapon-attached scope. Automatically enabled in 3DOF mode.", false);
 	c_ScopeOffsetPistol = config.RegisterVector3("ScopeOffsetPistol", "Offset of the scope view relative to the pistol's location", Vector3(-0.1f, 0.0f, 0.15f));
 	c_ScopeOffsetSniper = config.RegisterVector3("ScopeOffsetSniper", "Offset of the scope view relative to the pistol's location", Vector3(-0.15f, 0.0f, 0.15f));
 	c_ScopeOffsetRocket = config.RegisterVector3("ScopeOffsetRocket", "Offset of the scope view relative to the pistol's location", Vector3(0.1f, 0.2f, 0.1f));
@@ -1293,15 +1294,15 @@ void Game::UpdateCrosshairAndScope()
 	bool bHasScope;
 	Vector3 scopePos;
 
-	if (bUse3DOFAiming)
+	if (ShouldUseOriginalScope())
 	{
-		// 3DOF MODE: Position scope at crosshair location (targetPos)
+		// Original scope: position at crosshair
 		bHasScope = (zoom != -1);
 		scopePos = targetPos;
 	}
 	else
 	{
-		// 6DOF MODE: Use weapon scope position (original behavior)
+		// VR scope: position at weapon
 		bHasScope = (zoom != -1) && weaponHandler.GetLocalWeaponScope(aimPos, aimDir, upDir);
 		scopePos = aimPos;
 	}
@@ -1350,7 +1351,7 @@ void Game::SetScopeTransform(Matrix4& newTransform, bool bIsVisible)
 	inGameRenderer.DrawPolygon(pos, scopeFacing, scopeUp, 32, MetresToWorld(GetScopeSize() * 0.5f), D3DCOLOR_ARGB(0, 0, 0, 0), false);
 
 	float SCOPE_DEPTH = 2.0f;
-	float SCOPE_INNER_SCALE = bUse3DOFAiming ? 1.6f : 80.0f;
+	float SCOPE_INNER_SCALE = ShouldUseOriginalScope() ? 1.6f : 80.0f;
 
 	pos = pos - scopeFacing * MetresToWorld(SCOPE_DEPTH);
 	size *= SCOPE_INNER_SCALE;

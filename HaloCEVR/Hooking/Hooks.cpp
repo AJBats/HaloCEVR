@@ -871,9 +871,9 @@ void Hooks::H_DrawViewModel()
 		return;
 	}
 
-	// Skip weapon rendering during scope render in 3DOF mode
+	// Skip weapon rendering during scope render when using original scope
 	// This fixes an issue where the weapon model was showing up in the scope
-	if (Game::instance.GetRenderState() == ERenderState::SCOPE && Game::instance.bUse3DOFAiming)
+	if (Game::instance.GetRenderState() == ERenderState::SCOPE && Game::instance.ShouldUseOriginalScope())
 	{
 		return;
 	}
