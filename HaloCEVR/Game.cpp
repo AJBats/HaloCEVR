@@ -1274,9 +1274,12 @@ void Game::UpdateCrosshairAndScope()
 
 	Matrix4 overlayTransform;
 
-	Vector3 targetPos = aimPos + aimDir * c_CrosshairDistance->Value();
-
 	Vector3 hmdPos = vr->GetHMDTransform(true) * Vector3(0.0f, 0.0f, 0.0f);
+
+	// In 3DOF mode, crosshair projects from HMD position (matching bullet origin)
+	// In 6DOF mode, crosshair projects from controller/weapon position
+	Vector3 crosshairOrigin = bUse3DOFAiming ? hmdPos : aimPos;
+	Vector3 targetPos = crosshairOrigin + aimDir * c_CrosshairDistance->Value();
 
 	overlayTransform.translate(targetPos);
 	overlayTransform.lookAt(hmdPos, Vector3(0.0f, 0.0f, 1.0f));

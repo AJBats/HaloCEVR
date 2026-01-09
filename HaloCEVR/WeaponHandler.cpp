@@ -828,9 +828,26 @@ bool WeaponHandler::GetLocalWeaponAim(Vector3& outPosition, Vector3& outAim, Vec
 		handRotation3.setColumn(i, &handRotation.get()[i * 4]);
 	}
 
-	Matrix3 finalRot = cachedViewModel.fireRotation * handRotation3;
+	Matrix3 finalRot;
 
-	outPosition = handPos + handRotation * cachedViewModel.fireOffset * Game::instance.WorldToMetres(1.0f);
+	if (Game::instance.bUse3DOFAiming)
+	{
+		// 3DOF MODE: Use pure controller rotation (matching bullet direction in RelocatePlayer)
+		// fireRotation is NOT updated in 3DOF mode, so skip it
+		finalRot = handRotation3;
+
+		// Position from HMD instead of controller
+		Matrix4 hmdTransform = Game::instance.GetVR()->GetHMDTransform(true);
+		Vector3 hmdPos = hmdTransform * Vector3(0.0f, 0.0f, 0.0f);
+		outPosition = hmdPos;
+	}
+	else
+	{
+		// 6DOF MODE: Use fireRotation offset (existing behavior)
+		finalRot = cachedViewModel.fireRotation * handRotation3;
+		outPosition = handPos + handRotation * cachedViewModel.fireOffset * Game::instance.WorldToMetres(1.0f);
+	}
+
 	outAim = finalRot * Vector3(1.0f, 0.0f, 0.0f);
 	upDir = finalRot * Vector3(0.0f, 0.0f, 1.0f);
 
@@ -887,13 +904,29 @@ bool WeaponHandler::GetLocalWeaponScope(Vector3& outPosition, Vector3& outAim, V
 		handRotation3.setColumn(i, &handRotation.get()[i * 4]);
 	}
 
-	Matrix3 finalRot = cachedViewModel.fireRotation * handRotation3;
+	Matrix3 finalRot;
 
-	Vector3 scopeOffset = GetScopeLocation(cachedViewModel.weaponType);
+	if (Game::instance.bUse3DOFAiming)
+	{
+		// 3DOF MODE: Use pure controller rotation (matching bullet direction in RelocatePlayer)
+		// fireRotation is NOT updated in 3DOF mode, so skip it
+		finalRot = handRotation3;
 
-	Vector3 gunOffset = handPos + handRotation * cachedViewModel.gunOffset * Game::instance.WorldToMetres(1.0f);
+		// Position from HMD instead of controller
+		Matrix4 hmdTransform = Game::instance.GetVR()->GetHMDTransform(true);
+		Vector3 hmdPos = hmdTransform * Vector3(0.0f, 0.0f, 0.0f);
+		outPosition = hmdPos;
+	}
+	else
+	{
+		// 6DOF MODE: Use fireRotation offset and scope position (existing behavior)
+		finalRot = cachedViewModel.fireRotation * handRotation3;
 
-	outPosition = gunOffset + finalRot * scopeOffset;
+		Vector3 scopeOffset = GetScopeLocation(cachedViewModel.weaponType);
+		Vector3 gunOffset = handPos + handRotation * cachedViewModel.gunOffset * Game::instance.WorldToMetres(1.0f);
+		outPosition = gunOffset + finalRot * scopeOffset;
+	}
+
 	outAim = finalRot * Vector3(1.0f, 0.0f, 0.0f);
 	upDir = finalRot * Vector3(1.0f, 0.0f, 1.0f);
 
@@ -954,11 +987,30 @@ void WeaponHandler::RelocatePlayer(HaloID& PlayerID)
 
 		// Cache the real values so we can restore them after running the original fire function
 		realPlayerPosition = weaponFiredPlayer->position;
-		// What are the other aims for??
 		realPlayerAim = weaponFiredPlayer->aim;
 
-		weaponFiredPlayer->position = handPos + handRotation * cachedViewModel.fireOffset;
-		weaponFiredPlayer->aim = (cachedViewModel.fireRotation * handRotation3) * Vector3(1.0f, 0.0f, 0.0f);
+		if (Game::instance.bUse3DOFAiming)
+		{
+			// 3DOF MODE: Bullets originate from HMD (user's eyes)
+			// Get HMD position in VR space
+			Matrix4 hmdTransform = Game::instance.GetVR()->GetHMDTransform(true);
+			Vector3 hmdPos = hmdTransform * Vector3(0.0f, 0.0f, 0.0f);
+
+			// Convert to game world units and add to player base position
+			Vector3 hmdPosWorld = hmdPos * Game::instance.MetresToWorld(1.0f);
+			weaponFiredPlayer->position = realPlayerPosition + hmdPosWorld;
+
+			// Aim direction uses controller rotation directly
+			// Note: fireRotation is NOT updated in 3DOF mode (skipped in UpdateViewModel),
+			// so we use handRotation3 directly for aim direction
+			weaponFiredPlayer->aim = handRotation3 * Vector3(1.0f, 0.0f, 0.0f);
+		}
+		else
+		{
+			// 6DOF MODE: Bullets originate from hand/gun barrel (existing behavior)
+			weaponFiredPlayer->position = handPos + handRotation * cachedViewModel.fireOffset;
+			weaponFiredPlayer->aim = (cachedViewModel.fireRotation * handRotation3) * Vector3(1.0f, 0.0f, 0.0f);
+		}
 
 #if DRAW_DEBUG_AIM
 		Vector3 internalFireOffset = Helpers::GetCamera().position - realPlayerPosition;
