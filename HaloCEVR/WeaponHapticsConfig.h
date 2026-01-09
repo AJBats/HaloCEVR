@@ -3,7 +3,7 @@
 #include "WeaponHandler.h"
 #include "VR/IVR.h"
 
-#define HAPTICS_DEBUG 1
+#define HAPTICS_DEBUG 0
 #define HAPTICS_EMULATED_DEBUG 0
 
 
