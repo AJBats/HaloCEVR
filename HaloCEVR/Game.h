@@ -12,6 +12,7 @@
 #include "WeaponHandler.h"
 #include "InputHandler.h"
 #include "InGameRenderer.h"
+#include "WeaponHapticsConfig.h"
 #include "Profiler.h"
 #include "UI/UIRenderer.h"
 #include "UI/SettingsMenu.h"
@@ -95,6 +96,8 @@ public:
 	bool bUse3DOFAiming = false;
 
 	Config config;
+	bool bIsFiring = false;
+	bool bIsReloading = false;
 
 	InGameRenderer inGameRenderer;
 	InGameRenderer scopeRenderer;
@@ -103,6 +106,7 @@ public:
 
 	bool bDetectedChimera = false;
 	Vector3 LastLookDir;
+	WeaponHapticsConfigManager weaponHapticsConfig;
 
 	bool bLoadedConfig = false;
 	bool bSavedConfig = false;

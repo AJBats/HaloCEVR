@@ -11,6 +11,8 @@
 #include "../Helpers/RenderTarget.h"
 #include "../Helpers/Camera.h"
 #include "../Helpers/Cutscene.h"
+#include "../Helpers/Menus.h"
+#include "../WeaponHapticsConfig.h"
 
 #pragma comment(lib, "openvr_api.lib")
 #pragma comment(lib, "d3d11.lib")
@@ -116,6 +118,19 @@ void OpenVR::Init()
 	{
 		Logger::log << "[OpenVR] Could not get right hand pose: " << poseError << std::endl;
 		bHasValidTipPoses = false;
+	}
+
+	vr::EVRInputError leftFireError = vrInput->GetActionHandle("/actions/default/out/LeftFire", &leftFire);
+	vr::EVRInputError rightFireError = vrInput->GetActionHandle("/actions/default/out/RightFire", &rightFire);
+
+	if (leftFireError != vr::EVRInputError::VRInputError_None)
+	{
+		Logger::log << "[OpenVR] Could not get leftFire (vibration) action: " << leftFireError << std::endl;
+	}
+
+	if (rightFireError != vr::EVRInputError::VRInputError_None)
+	{
+		Logger::log << "[OpenVR] Could not get leftFire (vibration) action: " << rightFireError << std::endl;
 	}
 
 	UpdateInputs();
@@ -563,11 +578,7 @@ void OpenVR::Recentre()
 
 void OpenVR::SetLocationOffset(Vector3 newOffset)
 {
-	Vector3 OldTransform = GetHMDTransform() * Vector3(0.0f, 0.0f, 0.0f);
-
 	positionOffset = newOffset;
-
-	Logger::log << "Updated Loc Offset. New offset = " << newOffset << ", old HMD transform = " << OldTransform << ", new HMD transform = " << (GetHMDTransform() * Vector3(0.0f, 0.0f, 0.0f)) << std::endl;
 }
 
 Vector3 OpenVR::GetLocationOffset()
@@ -577,16 +588,71 @@ Vector3 OpenVR::GetLocationOffset()
 
 void OpenVR::SetYawOffset(float newOffset)
 {
-	Vector3 OldTransform = GetHMDTransform() * Vector3(0.0f, 0.0f, 0.0f);
-
 	yawOffset = newOffset;
-
-	Logger::log << "Updated Yaw Offset. New offset = " << newOffset << ", old HMD transform = " << OldTransform << ", new HMD transform = " << (GetHMDTransform() * Vector3(0.0f, 0.0f, 0.0f)) << std::endl;
 }
 
 float OpenVR::GetYawOffset()
 {
 	return yawOffset;
+}
+
+void OpenVR::TriggerHapticVibration(ControllerRole role, float fStartSecondsFromNow, float fDurationSeconds, float fFrequency, float fAmplitude)
+{
+#if HAPTICS_DEBUG
+		Logger::log << "[WeaponHaptics] TriggerHapticVibration called with: \tRole: " << static_cast<int>(role)
+		<<
+		"\tstartSeconds: "
+		<< fStartSecondsFromNow
+		<< "\t"
+		"duration: "
+		<< fDurationSeconds
+		<< "\t"
+		"frequency: "
+		<< fFrequency
+		<< "\t"
+		"amplitude: "
+		<< fAmplitude
+		<< "\t"
+		<< std::endl;
+#endif 
+
+	vr::VRActionHandle_t* action;
+	
+	if (role == ControllerRole::Left)
+	{
+		action = &leftFire;
+	}
+	else 
+	{
+		action = &rightFire;
+	}
+
+	if (action)
+	{
+		vr::EVRInputError error = vrInput->TriggerHapticVibrationAction(*action, fStartSecondsFromNow, fDurationSeconds, fFrequency, fAmplitude, vr::k_ulInvalidInputValueHandle);
+
+#if HAPTICS_DEBUG
+		if (error != vr::EVRInputError::VRInputError_None)
+		{
+			Logger::log << "[OpenVR] Could not trigger haptic vibration action: " << error << std::endl;
+		}
+#endif
+	}
+}
+
+void OpenVR::TriggerHapticPulse(ControllerRole role, short usDurationMicroSec)
+{
+#if HAPTICS_DEBUG
+	Logger::log << "[WeaponHaptics] TriggerHapticPulse called with: \tRole: " << static_cast<int>(role)
+		<<
+		"\tusDurationMicroSec: "
+		<< usDurationMicroSec
+		<< "\t"
+		<< std::endl;
+#endif 
+	
+	vr::TrackedDeviceIndex_t controllerIndex = vrSystem->GetTrackedDeviceIndexForControllerRole(role == ControllerRole::Left ? vr::TrackedControllerRole_LeftHand : vr::TrackedControllerRole_RightHand);
+	vrSystem->TriggerHapticPulse(controllerIndex, 0, usDurationMicroSec);
 }
 
 Matrix4 OpenVR::GetHMDTransform(bool bRenderPose)

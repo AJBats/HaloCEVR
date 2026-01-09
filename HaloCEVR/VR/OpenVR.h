@@ -55,6 +55,9 @@ public:
 	void HideKeyboard() override;
 	std::string GetKeyboardInput() override;
 	std::string GetDeviceName() override;
+	void TriggerHapticVibration(ControllerRole role, float fStartSecondsFromNow, float fDurationSeconds, float fFrequency, float fAmplitude) override;
+	void TriggerHapticPulse(ControllerRole role, short usDurationMicroSec) override;
+
 	// End Interface IVR
 
 protected:
@@ -117,6 +120,9 @@ protected:
 
 	vr::VRActionHandle_t leftHandTip;
 	vr::VRActionHandle_t rightHandTip;
+	vr::VRActionHandle_t leftFire;
+	vr::VRActionHandle_t rightFire;
+
 	vr::InputPoseActionData_t leftHandTipPose;
 	vr::InputPoseActionData_t rightHandTipPose;
 	bool bHasValidTipPoses = false;

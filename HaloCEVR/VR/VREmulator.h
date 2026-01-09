@@ -55,6 +55,8 @@ public:
 	void HideKeyboard();
 	std::string GetKeyboardInput();
 	std::string GetDeviceName();
+	void TriggerHapticVibration(ControllerRole role, float fStartSecondsFromNow, float fDurationSeconds, float fFrequency, float fAmplitude) override;
+	void TriggerHapticPulse(ControllerRole role, short usDurationMicroSec) override;
 	// End Interface IVR
 
 protected:

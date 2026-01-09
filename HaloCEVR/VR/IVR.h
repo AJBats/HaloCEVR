@@ -62,4 +62,7 @@ public:
 	virtual std::string GetKeyboardInput() = 0;
 
 	virtual std::string GetDeviceName() = 0;
+
+	virtual void TriggerHapticVibration(ControllerRole role, float fStartSecondsFromNow, float fDurationSeconds, float fFrequency, float fAmplitude) = 0;
+	virtual void TriggerHapticPulse(ControllerRole role, short usDurationMicroSec) = 0;
 };

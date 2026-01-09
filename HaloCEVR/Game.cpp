@@ -734,6 +734,13 @@ void Game::UpdateViewModel(HaloID& id, Vector3* pos, Vector3* facing, Vector3* u
 {
 	VR_PROFILE_SCOPE(Game_UpdateViewModel);
 	weaponHandler.UpdateViewModel(id, pos, facing, up, BoneTransforms, OutBoneTransforms);
+
+	if (Game::instance.bIsFiring)
+	{
+		weaponHandler.SetPlasmaPistolCharge();
+	}
+
+	weaponHandler.HandlePlasmaPistolCharge();
 }
 
 void Game::PreFireWeapon(HaloID& weaponID, short param2)
@@ -855,22 +862,43 @@ bool Game::GetCalculatedHandPositions(Matrix4& controllerTransform, Vector3& dom
 void Game::ReloadStart(HaloID param1, short param2, bool param3)
 {
 	VR_PROFILE_SCOPE(Game_ReloadStart);
-	// TODO: Check if this reload was from the player (can probably be done by checking the weapon's parent ID matches the player)
+
 	WeaponDynamicObject* weaponObject = static_cast<WeaponDynamicObject*>((Helpers::GetDynamicObject(param1)));
+
+	HaloID playerID{};
+	Helpers::GetLocalPlayerID(playerID);
+
+	if (!weaponObject || weaponObject->parent != playerID)
+	{
+		return;
+	}
 
 	Weapon& weapon = weaponObject->weaponData[param2];
 
 	// Reload function gets called whenever the player tries to reload, if reloadstate is 1 then a reload was actually triggered
 	if (weapon.reloadState == 1)
 	{
-		Logger::log << "Reload Start (" << param1 << ", " << param2 << ", " << param3 << ")" << std::endl;
+		bIsReloading = true;
+		//Logger::log << "Reload Start (" << param1 << ", " << param2 << ", " << param3 << ")" << std::endl;
 	}
 }
 
 void Game::ReloadEnd(short param1, HaloID param2)
 {
 	VR_PROFILE_SCOPE(Game_ReloadEnd);
-	Logger::log << "Reload End" << std::endl;
+
+	WeaponDynamicObject* weaponObject = static_cast<WeaponDynamicObject*>((Helpers::GetDynamicObject(param2)));
+
+	HaloID playerID{};
+	Helpers::GetLocalPlayerID(playerID);
+
+	if (!weaponObject || weaponObject->parent != playerID)
+	{
+		return;
+	}
+
+	bIsReloading = false;
+	//Logger::log << "Reload End" << std::endl;
 }
 
 Vector3 Game::GetSmoothedInput() const
@@ -1111,6 +1139,8 @@ void Game::SetupConfigs()
 		Logger::log << "[Config] Invalid value for MirrorEye, defaulting to left eye" << std::endl;
 		mirrorSource = ERenderState::LEFT_EYE;
 	}
+
+	WeaponHapticsConfigManager weaponHapticsConfig;
 
 	//Logger::log << "[Config] Loaded configs" << std::endl;
 }

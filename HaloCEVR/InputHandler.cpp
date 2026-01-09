@@ -91,6 +91,8 @@ void InputHandler::UpdateInputs(bool bInVehicle)
 		ApplyBoolInput(Crouch);
 		ApplyImpulseBoolInput(Zoom);
 		ApplyBoolInput(Reload);
+
+		Game::instance.bIsFiring = controls.Fire;
 	}
 	else
 	{
@@ -108,7 +110,10 @@ void InputHandler::UpdateInputs(bool bInVehicle)
 		ApplyBoolInput(Crouch);
 		ApplyImpulseBoolInput(Zoom);
 		ApplyBoolInput(Reload);
+
+		Game::instance.bIsFiring = controls.Fire;
 	}
+
 
 	unsigned char MotionControlFlashlight = UpdateFlashlight();
 	if (MotionControlFlashlight > 0)
