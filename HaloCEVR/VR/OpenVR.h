@@ -120,8 +120,8 @@ protected:
 
 	vr::VRActionHandle_t leftHandTip;
 	vr::VRActionHandle_t rightHandTip;
-	vr::VRActionHandle_t* leftFire;
-	vr::VRActionHandle_t* rightFire;
+	vr::VRActionHandle_t leftFire;
+	vr::VRActionHandle_t rightFire;
 
 	vr::InputPoseActionData_t leftHandTipPose;
 	vr::InputPoseActionData_t rightHandTipPose;

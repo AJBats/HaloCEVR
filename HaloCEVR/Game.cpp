@@ -862,8 +862,16 @@ bool Game::GetCalculatedHandPositions(Matrix4& controllerTransform, Vector3& dom
 void Game::ReloadStart(HaloID param1, short param2, bool param3)
 {
 	VR_PROFILE_SCOPE(Game_ReloadStart);
-	// TODO: Check if this reload was from the player (can probably be done by checking the weapon's parent ID matches the player)
+
 	WeaponDynamicObject* weaponObject = static_cast<WeaponDynamicObject*>((Helpers::GetDynamicObject(param1)));
+
+	HaloID playerID{};
+	Helpers::GetLocalPlayerID(playerID);
+
+	if (!weaponObject || weaponObject->parent != playerID)
+	{
+		return;
+	}
 
 	Weapon& weapon = weaponObject->weaponData[param2];
 
@@ -871,15 +879,26 @@ void Game::ReloadStart(HaloID param1, short param2, bool param3)
 	if (weapon.reloadState == 1)
 	{
 		bIsReloading = true;
-		Logger::log << "Reload Start (" << param1 << ", " << param2 << ", " << param3 << ")" << std::endl;
+		//Logger::log << "Reload Start (" << param1 << ", " << param2 << ", " << param3 << ")" << std::endl;
 	}
 }
 
 void Game::ReloadEnd(short param1, HaloID param2)
 {
 	VR_PROFILE_SCOPE(Game_ReloadEnd);
+
+	WeaponDynamicObject* weaponObject = static_cast<WeaponDynamicObject*>((Helpers::GetDynamicObject(param2)));
+
+	HaloID playerID{};
+	Helpers::GetLocalPlayerID(playerID);
+
+	if (!weaponObject || weaponObject->parent != playerID)
+	{
+		return;
+	}
+
 	bIsReloading = false;
-	Logger::log << "Reload End" << std::endl;
+	//Logger::log << "Reload End" << std::endl;
 }
 
 Vector3 Game::GetSmoothedInput() const

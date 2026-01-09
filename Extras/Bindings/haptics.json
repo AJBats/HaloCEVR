@@ -9,28 +9,28 @@
       "Description": "Unknown",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -39,28 +39,28 @@
       "Description": "Pistol",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -69,28 +69,28 @@
       "Description": "AssaultRifle",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -99,28 +99,28 @@
       "Description": "Shotgun",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -129,28 +129,28 @@
       "Description": "RocketLauncher",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -159,28 +159,28 @@
       "Description": "Sniper",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -189,28 +189,28 @@
       "Description": "Flamethrower",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -219,28 +219,28 @@
       "Description": "PlasmaPistol",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -249,28 +249,28 @@
       "Description": "PlasmaRifle",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -279,28 +279,28 @@
       "Description": "PlasmaCannon",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -309,28 +309,28 @@
       "Description": "Needler",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     },
@@ -339,28 +339,28 @@
       "Description": "FuelRod",
       "OneHand": {
         "StartSecondsDelay": 0,
-        "DurationSeconds": 1,
-        "Frequency": 1,
+        "DurationSeconds": 0.4,
+        "Frequency": 100,
         "Amplitude": 1,
-        "UsePulse": true,
-        "PulseMicroseconds": 400
+        "UsePulse": false,
+        "PulseMicroseconds": 400000
       },
       "TwoHand": {
         "Dominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         },
         "Nondominant": {
           "StartSecondsDelay": 0,
-          "DurationSeconds": 1,
-          "Frequency": 1,
+          "DurationSeconds": 0.4,
+          "Frequency": 100,
           "Amplitude": 1,
-          "UsePulse": true,
-          "PulseMicroseconds": 400
+          "UsePulse": false,
+          "PulseMicroseconds": 400000
         }
       }
     }

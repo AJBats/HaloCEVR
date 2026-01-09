@@ -120,14 +120,8 @@ void OpenVR::Init()
 		bHasValidTipPoses = false;
 	}
 
-	vr::VRActionHandle_t localLeftFire;
-	vr::VRActionHandle_t localRightFire;
-
-	vr::EVRInputError leftFireError = vrInput->GetActionHandle("/actions/default/out/LeftFire", &localLeftFire);
-	vr::EVRInputError rightFireError = vrInput->GetActionHandle("/actions/default/out/RightFire", &localRightFire);
-
-	leftFire = &localLeftFire;
-	rightFire = &localRightFire;
+	vr::EVRInputError leftFireError = vrInput->GetActionHandle("/actions/default/out/LeftFire", &leftFire);
+	vr::EVRInputError rightFireError = vrInput->GetActionHandle("/actions/default/out/RightFire", &rightFire);
 
 	if (leftFireError != vr::EVRInputError::VRInputError_None)
 	{
@@ -626,16 +620,23 @@ void OpenVR::TriggerHapticVibration(ControllerRole role, float fStartSecondsFrom
 	
 	if (role == ControllerRole::Left)
 	{
-		action = leftFire;
+		action = &leftFire;
 	}
 	else 
 	{
-		action = rightFire;
+		action = &rightFire;
 	}
 
 	if (action)
 	{
-		vrInput->TriggerHapticVibrationAction(*action, fStartSecondsFromNow, fDurationSeconds, fFrequency, fAmplitude, vr::k_ulInvalidInputValueHandle);
+		vr::EVRInputError error = vrInput->TriggerHapticVibrationAction(*action, fStartSecondsFromNow, fDurationSeconds, fFrequency, fAmplitude, vr::k_ulInvalidInputValueHandle);
+
+#if HAPTICS_DEBUG
+		if (error != vr::EVRInputError::VRInputError_None)
+		{
+			Logger::log << "[OpenVR] Could not trigger haptic vibration action: " << error << std::endl;
+		}
+#endif
 	}
 }
 

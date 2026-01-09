@@ -72,7 +72,6 @@ protected:
 		Vector3 gunOffset;
 		Matrix3 fireRotation;
 		WeaponType weaponType = WeaponType::Unknown;
-		bool IsLeftHanded = false;
 		bool IsShooting = false;
 		
 	} cachedViewModel;

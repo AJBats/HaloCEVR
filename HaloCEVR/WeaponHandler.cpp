@@ -602,8 +602,6 @@ void WeaponHandler::UpdateCache(HaloID& id, AssetData_ModelAnimations* animation
 
 	cachedViewModel.weaponType = GetWeaponType(weapon);
 
-	cachedViewModel.IsLeftHanded = Game::instance.c_LeftHanded->Value();
-
 	if (!weapon->WeaponData)
 	{
 		Logger::log << "[UpdateCache] Can't find weapon data in weapon asset " << weaponObj->tagID << std::endl;
@@ -1020,11 +1018,6 @@ void WeaponHandler::HandlePlasmaPistolCharge()
 inline void WeaponHandler::HandleWeaponHaptics() const
 {
 	IVR* vr = Game::instance.GetVR();
-
-	if (Game::instance.bIsReloading) 
-	{
-		return;
-	}
 	
 	if (cachedViewModel.weaponType != WeaponType::Unknown)
 	{
@@ -1038,7 +1031,7 @@ inline void WeaponHandler::HandleWeaponHaptics() const
 		ControllerRole dominantHand = ControllerRole::Right;
 		ControllerRole nondominantHand = ControllerRole::Left;
 		
-		if (cachedViewModel.IsLeftHanded)
+		if (Game::instance.bLeftHanded)
 		{
 #if HAPTICS_DEBUG
 			Logger::log << "[Weapon Haptics] Left is hand dominant hand. " << haptic.Description << std::endl;
