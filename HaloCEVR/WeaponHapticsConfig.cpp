@@ -181,7 +181,7 @@ WeaponHaptic WeaponHapticsConfigManager::GetWeaponHaptics(WeaponType Weapon)
 	haptic.TwoHand.Dominant = defaultHaptics;
 	haptic.TwoHand.Nondominant = defaultHaptics;
 
-	for (WeaponHaptic currentHaptic : hapticList)
+	for (WeaponHaptic& currentHaptic : hapticList)
 	{
 		if (currentHaptic.Weapon == Weapon)
 		{
@@ -198,7 +198,7 @@ WeaponHaptic WeaponHapticsConfigManager::GetWeaponHaptics(WeaponType Weapon)
 			plasmaPistolSettings.RampUpTimer = 0;
 		}
 
-		double percentage = plasmaPistolSettings.RampUpTimer / plasmaPistolSettings.RampUpTicks;
+		double percentage = plasmaPistolSettings.RampUpTimer / std::max(1, plasmaPistolSettings.RampUpTicks);
 	
 		double percentageOfChange = std::max(.2, percentage);
 
